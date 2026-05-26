@@ -1,0 +1,62 @@
+import {
+  weeklyHarnessContextPolicy,
+  weeklyHarnessIdentityNamingRules,
+  weeklyHarnessJudgmentRules,
+  weeklyHarnessOperatingLoop,
+  weeklyHarnessOutputContract,
+  weeklyHarnessPermissionBoundaries,
+  weeklyHarnessToolsLayer,
+} from './weekly-guidance.ts';
+
+function bulletLines(lines: string[]): string[] {
+  return lines.map((line) => `- ${line}`);
+}
+
+export function renderWeeklySkillMarkdown(): string {
+  return [
+    '---',
+    'name: weekly',
+    'description: Use when the user asks for weekly, /weekly, $weekly, 本周周报, 周报, weekly update, weekly progress, or asks to summarize recent agent-assisted work.',
+    '---',
+    '',
+    '# Weekly',
+    '',
+    'Weekly is the Agent-facing adapter for the shared weekly harness contract. The local `workline` CLI is the local fact/context engine. `workline` extracts the facts; you provide judgment, synthesis, and reader-appropriate wording.',
+    '',
+    '## Available Local Tools',
+    '',
+    ...bulletLines(weeklyHarnessToolsLayer),
+    '',
+    '## Context Policy',
+    '',
+    ...bulletLines(weeklyHarnessContextPolicy),
+    '',
+    '## Operating Loop',
+    '',
+    ...bulletLines(weeklyHarnessOperatingLoop),
+    '',
+    '## Permission and Action Boundaries',
+    '',
+    ...bulletLines(weeklyHarnessPermissionBoundaries),
+    '',
+    '## Judgment Rules',
+    '',
+    ...bulletLines(weeklyHarnessJudgmentRules),
+    '',
+    '## Identity and Naming',
+    '',
+    ...bulletLines(weeklyHarnessIdentityNamingRules),
+    '',
+    '## Output Contract',
+    '',
+    'Start the final Markdown report with exactly two localized opening lines:',
+    '',
+    '```markdown',
+    '<localized report title; include report display name only when reliable>',
+    '<localized period line using {startDate} and {endDate}>',
+    '```',
+    '',
+    ...bulletLines(weeklyHarnessOutputContract),
+    '',
+  ].join('\n');
+}

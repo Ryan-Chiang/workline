@@ -1,0 +1,4 @@
+{"timestamp":"2026-05-03T15:00:00.000Z","type":"session_meta","payload":{"id":"old-no-baseline-session","cwd":"C:\\repo\\delta","originator":"codex-tui","source":"cli"}}
+{"timestamp":"2026-05-03T15:10:00.000Z","type":"event_msg","payload":{"type":"token_count","info":null}}
+{"timestamp":"2026-05-03T15:20:00.000Z","type":"event_msg","payload":{"type":"token_count"}}
+{"timestamp":"2026-05-04T02:00:00.000Z","type":"event_msg","payload":{"type":"token_count","input_tokens":40,"cached_input_tokens":10,"output_tokens":9,"reasoning_output_tokens":5,"total_tokens":64}}

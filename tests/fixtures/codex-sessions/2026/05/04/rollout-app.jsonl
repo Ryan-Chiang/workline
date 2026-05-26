@@ -1,0 +1,10 @@
+{"timestamp":"2026-05-03T15:00:00.000Z","type":"session_meta","payload":{"id":"app-session","cwd":"C:\\repo\\alpha","originator":"Codex Desktop","source":"codex","cli_version":"0.1.0","git":{"branch":"feat-report","repository":"C:\\repo\\alpha","commit":"abc123"}}}
+{"timestamp":"2026-05-03T15:30:00.000Z","type":"event_msg","payload":{"type":"token_count","input_tokens":100,"cached_input_tokens":20,"output_tokens":30,"reasoning_output_tokens":10,"total_tokens":160}}
+{"timestamp":"2026-05-04T01:00:00.000Z","type":"event_msg","payload":{"type":"task_started","summary":"Implement weekly report MVP"}}
+{"timestamp":"2026-05-04T02:00:00.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Explored parser design"}}
+{"timestamp":"2026-05-04T03:00:00.000Z","type":"event_msg","payload":{"type":"exec_command_end","command":"npm test","exit_code":0}}
+{"timestamp":"2026-05-04T04:00:00.000Z","type":"event_msg","payload":{"type":"token_count","input_tokens":160,"cached_input_tokens":40,"output_tokens":45,"reasoning_output_tokens":17,"total_tokens":242}}
+{"timestamp":"2026-05-04T05:00:00.000Z","type":"event_msg","payload":{"type":"task_complete","last_agent_message":"Completed weekly report MVP parser"}}
+{"timestamp":"2026-05-04T06:00:00.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Confirm packaging with reviewer"}}
+{"timestamp":"2026-05-04T07:00:00.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Final reviewer note"}}
+not-json

@@ -1,0 +1,7 @@
+{"timestamp":"2026-05-05T01:00:00.000Z","type":"session_meta","payload":{"id":"cli-session","cwd":"C:\\repo\\alpha","originator":"codex-tui","source":"cli","git_branch":"feat-report","git_repository":"C:\\repo\\alpha","git_commit":"def456"}}
+{"timestamp":"2026-05-05T01:05:00.000Z","type":"event_msg","payload":{"type":"task_started","summary":"Check report output"}}
+{"timestamp":"2026-05-05T01:10:00.000Z","type":"event_msg","payload":{"type":"token_count","input_tokens":30,"cached_input_tokens":5,"output_tokens":10,"reasoning_output_tokens":5,"total_tokens":50}}
+{"timestamp":"2026-05-05T01:12:00.000Z","type":"event_msg","payload":{"type":"agent_message","message":"First CLI observation"}}
+{"timestamp":"2026-05-05T01:15:00.000Z","type":"event_msg","payload":{"type":"exec_command_end","command":["pwsh.exe","-Command","node ./bin/workline.js weekly"],"exit_code":0}}
+{"timestamp":"2026-05-05T01:20:00.000Z","type":"event_msg","payload":{"type":"exec_command_end","command":{"program":"ignored"},"parsed_cmd":[{"cmd":"git status --short"}],"exit_code":0}}
+{"timestamp":"2026-05-05T01:25:00.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Second CLI observation"}}

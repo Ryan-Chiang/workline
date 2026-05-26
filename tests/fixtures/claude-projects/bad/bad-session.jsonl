@@ -1,0 +1,2 @@
+{"type":"assistant","sessionId":"claude-bad-session","cwd":"C:\\repo\\bad","timestamp":"2026-05-05T03:00:00.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Valid Claude note after malformed input."}]}}
+{bad json

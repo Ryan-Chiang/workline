@@ -1,0 +1,2 @@
+{"timestamp":"2026-05-05T03:00:00.000Z","type":"session_meta","payload":{"id":"macos-session","cwd":"/Users/example/project/workline","originator":"codex-tui","source":"cli","git":{"branch":"feature/support-macos-codex","repository":"/Users/example/project/workline","commit":"abc123"}}}
+{"timestamp":"2026-05-05T03:05:00.000Z","type":"event_msg","payload":{"type":"task_complete","summary":"Validated macOS Codex session extraction"}}

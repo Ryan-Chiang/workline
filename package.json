@@ -1,0 +1,35 @@
+{
+  "name": "workline",
+  "version": "0.1.1",
+  "description": "Turn AI work traces into reportable, trackable progress.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ryan-Chiang/workline.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ryan-Chiang/workline/issues"
+  },
+  "homepage": "https://github.com/Ryan-Chiang/workline#readme",
+  "bin": {
+    "workline": "bin/workline.js"
+  },
+  "files": [
+    "bin/",
+    "dist/"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.ts",
+    "build": "node --check bin/workline.js && tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "smoke": "node ./bin/workline.js weekly --facts --codex-root ./tests/fixtures/codex-sessions --since 2026-05-03T16:00:00.000Z --until 2026-05-06T12:00:00.000Z --timezone Asia/Shanghai"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.2",
+    "typescript": "^6.0.3"
+  }
+}
