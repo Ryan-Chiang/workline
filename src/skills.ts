@@ -25,8 +25,8 @@ function targetSkillPaths(target: SkillTarget): InstalledSkill[] {
   return targets.map((item) => ({
     target: item,
     path: item === 'codex'
-      ? path.join(codexHome(), 'skills', 'weekly')
-      : path.join(userHome(), '.claude', 'skills', 'weekly'),
+      ? path.join(codexHome(), 'skills', 'workline')
+      : path.join(userHome(), '.claude', 'skills', 'workline'),
   }));
 }
 

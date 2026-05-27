@@ -66,7 +66,7 @@ function boundedContextFacts(): CodexFacts {
         { command: 'git status --short', exitCode: 0, time: new Date('2026-05-04T04:04:00.000Z'), evidenceFile },
         { command: 'Get-Content package.json', exitCode: 0, time: new Date('2026-05-04T04:05:00.000Z'), evidenceFile },
         { command: 'Get-Content src/report.ts', exitCode: 0, time: new Date('2026-05-04T04:06:00.000Z'), evidenceFile },
-        { command: `node ./bin/workline.js weekly --context --print-output-path ${'--verbose-detail '.repeat(30)}RECENT_COMMAND_TAIL_SHOULD_NOT_RENDER`, exitCode: 0, time: new Date('2026-05-04T04:07:00.000Z'), evidenceFile },
+        { command: `node ./bin/workline.js --context --print-output-path ${'--verbose-detail '.repeat(30)}RECENT_COMMAND_TAIL_SHOULD_NOT_RENDER`, exitCode: 0, time: new Date('2026-05-04T04:07:00.000Z'), evidenceFile },
       ],
       tokenUsage: {
         input_tokens: 1,
@@ -205,17 +205,17 @@ test('renders an agent context package with final report path and evidence', asy
     until: new Date('2026-05-06T12:00:00.000Z'),
     timezone: 'Asia/Shanghai',
     generatedAt: new Date('2026-05-06T12:30:00.000Z'),
-    finalReportPath: 'C:\\reports\\weekly.md',
+    finalReportPath: 'C:\\reports\\workline.md',
   });
 
   assert.match(markdown, /^# Workline Weekly Agent Context/m);
-  assert.match(markdown, /Final report path: C:\\reports\\weekly\.md/);
+  assert.match(markdown, /Final report path: C:\\reports\\workline\.md/);
   assert.match(markdown, /## Agent task/);
-  assert.match(markdown, /CLI-facing evidence package for the shared weekly harness contract/);
+  assert.match(markdown, /CLI-facing evidence package for the shared Workline harness contract/);
   assert.match(markdown, /not a separate program, service, or user-visible component/);
   assert.match(markdown, /path-only/);
-  assert.match(markdown, /Do not use `workline weekly --facts` while writing the final report/);
-  assert.match(markdown, /use the Final report path, not `weekly-facts-\*\.md` or the generated context path/);
+  assert.match(markdown, /Do not use `workline --facts` while writing the final report/);
+  assert.match(markdown, /use the Final report path, not `workline-facts-\*\.md` or the generated context path/);
   assert.match(markdown, /bounded\/summarized/);
   assert.match(markdown, /local raw or potentially large/);
   assert.match(markdown, /concrete final-report decision/);
@@ -356,7 +356,7 @@ test('prioritizes high-signal command evidence and reports omitted command count
   assert.match(markdown, /`npm test` exit=1/);
   assert.match(markdown, /`openspec validate "bound-weekly-agent-context" --strict` exit=0/);
   assert.match(markdown, /`git status --short` exit=0/);
-  assert.match(markdown, /`node \.\/bin\/workline\.js weekly --context --print-output-path/);
+  assert.match(markdown, /`node \.\/bin\/workline\.js --context --print-output-path/);
   assert.match(markdown, /\[truncated; full command in \[E1\]\]/);
   assert.doesNotMatch(markdown, /RECENT_COMMAND_TAIL_SHOULD_NOT_RENDER/);
   assert.doesNotMatch(markdown, /`Get-Content README\.md`/);

@@ -21,16 +21,20 @@ function section(markdown: string, heading: string): string {
   return match[1] ?? '';
 }
 
-test('weekly skill template renders trigger metadata without workflow shortcuts', () => {
+test('workline skill template renders trigger metadata without workflow shortcuts', () => {
   const markdown = renderWeeklySkillMarkdown();
 
-  assert.match(markdown, /^---\nname: weekly\n/m);
-  assert.match(markdown, /description: Use when the user asks for weekly/);
+  assert.match(markdown, /^---\nname: workline\n/m);
+  assert.match(markdown, /description: Use when the user asks for workline/);
+  assert.match(markdown, /\$workline/);
+  assert.match(markdown, /\/workline/);
+  assert.match(markdown, /Workline report/);
+  assert.match(markdown, /workline summary/);
   assert.match(markdown, /本周周报/);
-  assert.doesNotMatch(markdown.split('---')[1] ?? '', /Run `workline weekly/);
+  assert.doesNotMatch(markdown.split('---')[1] ?? '', /Run `workline/);
 });
 
-test('weekly skill template renders explicit harness contract layers', () => {
+test('workline skill template renders explicit harness contract layers', () => {
   const markdown = renderWeeklySkillMarkdown();
 
   assert.match(markdown, /## Available Local Tools/);
@@ -56,7 +60,7 @@ test('weekly skill template renders explicit harness contract layers', () => {
   assert.doesNotMatch(markdown, /"overview": "overall summary"/);
 });
 
-test('weekly skill tools layer is pure and constraints live in explicit layers', () => {
+test('workline skill tools layer is pure and constraints live in explicit layers', () => {
   const markdown = renderWeeklySkillMarkdown();
   const tools = section(markdown, 'Available Local Tools');
   const boundaries = section(markdown, 'Permission and Action Boundaries');
@@ -64,8 +68,9 @@ test('weekly skill tools layer is pure and constraints live in explicit layers',
   const output = section(markdown, 'Output Contract');
 
   assert.match(tools, /path-only/);
-  assert.match(tools, /workline weekly --context --print-output-path/);
-  assert.doesNotMatch(tools, /workline weekly --format agent-context --print-output-path/);
+  assert.match(tools, /workline --context --print-output-path/);
+  assert.doesNotMatch(tools, /workline weekly --context --print-output-path/);
+  assert.doesNotMatch(tools, /workline --format agent-context --print-output-path/);
   assert.match(tools, /bounded\/summarized/);
   assert.match(tools, /potentially large\/raw/);
   assert.doesNotMatch(tools, /external LLM provider|cloud service|display name|transactional work|Do not infer|Do not call/i);
@@ -82,17 +87,18 @@ test('weekly skill tools layer is pure and constraints live in explicit layers',
   assert.match(output, /Do not present the generated agent-context path as a default user-facing deliverable/);
 });
 
-test('weekly skill forbids fact summaries in the final-report flow', () => {
+test('workline skill forbids fact summaries in the final-report flow', () => {
   const markdown = renderWeeklySkillMarkdown();
   const tools = section(markdown, 'Available Local Tools');
   const output = section(markdown, 'Output Contract');
 
+  assert.doesNotMatch(tools, /workline --facts/);
   assert.doesNotMatch(tools, /workline weekly --facts/);
-  assert.match(output, /Do not run `workline weekly --facts` for the final human-facing weekly report workflow/);
-  assert.match(output, /Do not present `weekly-facts-\*\.md` paths or contents as the final weekly report/);
+  assert.match(output, /Do not run `workline --facts` for the final human-facing weekly report workflow/);
+  assert.match(output, /Do not present `workline-facts-\*\.md` paths or contents as the final report/);
 });
 
-test('weekly skill output contract prioritizes scanability and avoids placeholder display names', () => {
+test('workline skill output contract prioritizes scanability and avoids placeholder display names', () => {
   const markdown = renderWeeklySkillMarkdown();
   const identity = section(markdown, 'Identity and Naming');
   const output = section(markdown, 'Output Contract');
@@ -108,7 +114,7 @@ test('weekly skill output contract prioritizes scanability and avoids placeholde
   assert.doesNotMatch(markdown, /Use final report structure: Overview, Work topics/);
 });
 
-test('weekly skill template reuses the same guidance exported for agent context', () => {
+test('workline skill template reuses the same guidance exported for agent context', () => {
   const markdown = renderWeeklySkillMarkdown();
   const sharedGuidance = [
     ...outcomeAgentTaskGuidance,

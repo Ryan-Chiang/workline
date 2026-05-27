@@ -54,7 +54,7 @@ npm link
 
 ### Quick Start
 
-Install the Agent-facing weekly skill for Codex and Claude:
+Install the Agent-facing Workline skill for Codex and Claude:
 
 ```powershell
 workline install-skill --target both
@@ -67,17 +67,17 @@ By default, Workline reads:
 
 On macOS and Linux these are typically `~/.codex/sessions` and `~/.claude/projects`. On Windows they resolve under `%USERPROFILE%`.
 
-After installation, ask the Agent for a weekly report with `$weekly`, `/weekly`, or a natural-language request such as `生成本周周报`.
+After installation, ask the Agent for a Workline report with `$workline`, `/workline`, or a natural-language request such as `生成本周周报`.
 
 You can pass source paths explicitly:
 
 ```bash
-workline weekly --context --print-output-path --codex-root ~/.codex/sessions --claude-root ~/.claude/projects
+workline --context --print-output-path --codex-root ~/.codex/sessions --claude-root ~/.claude/projects
 ```
 
 The printed path is an intermediate Agent context file. The final user-facing report is written by the Agent to the `Final report path` declared inside that context.
 
-Use `workline weekly --facts` only when you explicitly want the internal fact/debug summary.
+Use `workline --facts` only when you explicitly want the internal fact/debug summary.
 
 ### Privacy
 
@@ -100,7 +100,7 @@ Workline is open source under the MIT License.
 
 ### When To Use
 
-Use workline when the user asks for weekly progress, work summaries, Agent-assisted work recap, `$weekly`, `/weekly`, `本周周报`, `周报`, or related reporting material based on local work traces.
+Use workline when the user asks for Workline, `$workline`, `/workline`, weekly progress, work summaries, Agent-assisted work recap, `本周周报`, `周报`, or related reporting material based on local work traces.
 
 Do not treat chat messages, draft notes, or exploratory commands as completed outcomes unless the local facts support that conclusion.
 
@@ -142,14 +142,14 @@ npm link
 Run:
 
 ```powershell
-workline weekly --context --print-output-path
+workline --context --print-output-path
 ```
 
 Expected result: an Agent context Markdown file path is printed. Treat that path as an intermediate file, not as the final weekly report.
 
 If the command fails because local Codex sessions and Claude Code history are missing, inaccessible, or empty for the selected period, report that fact directly instead of inventing progress.
 
-### Install The Weekly Skill
+### Install The Workline Skill
 
 Install the Agent-facing skill:
 
@@ -165,12 +165,12 @@ Targets:
 
 After installing, verify the printed `SKILL.md` paths if the user asks whether installation is complete.
 
-### Generate Weekly Context
+### Generate Workline Context
 
 For Agent-written final reports, generate context with:
 
 ```powershell
-workline weekly --context --print-output-path
+workline --context --print-output-path
 ```
 
 Treat stdout as path-only output. Read the generated context file, then write the final report to the `Final report path` declared in that context.
@@ -178,20 +178,20 @@ Treat stdout as path-only output. Read the generated context file, then write th
 Pass through user-provided time bounds or source paths when relevant:
 
 ```powershell
-workline weekly --context --print-output-path --since <instant> --until <instant> --timezone <iana> --codex-root <path> --claude-root <path>
+workline --context --print-output-path --since <instant> --until <instant> --timezone <iana> --codex-root <path> --claude-root <path>
 ```
 
 ### Command Boundaries
 
-Use `workline weekly --facts` only for deterministic fact/debug summaries.
+Use `workline --facts` only for deterministic fact/debug summaries.
 
-Use `workline weekly --context` for Agent-facing context.
+Use `workline --context` for Agent-facing context.
 
-Use `$weekly`, `/weekly`, or a natural-language weekly request for the final human-facing report after the skill is installed.
+Use `$workline`, `/workline`, Workline wording, or a natural-language weekly request for the final human-facing report after the skill is installed.
 
-Do not call bare `workline weekly`; the weekly command requires an explicit output layer.
+Do not call bare `workline`; the terminal CLI requires `--context`, `--facts`, or an explicit compatible `--format` output layer.
 
-Do not present `weekly-facts-*.md` as the final weekly report.
+Do not present `workline-facts-*.md` as the final weekly report.
 
 ### Final Report Rules
 

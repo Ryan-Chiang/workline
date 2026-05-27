@@ -66,11 +66,10 @@ function writeSingleClaudeSession(root: string, id: string, cwd: string, summary
   }), 'utf8');
 }
 
-test('weekly without an output layer points users to the final-report workflow', () => {
+test('workline without an output layer points users to the final-report workflow', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--codex-root',
     fixturesRoot,
     '--since',
@@ -83,17 +82,40 @@ test('weekly without an output layer points users to the final-report workflow',
 
   assert.notEqual(result.status, 0);
   assert.equal(result.stdout, '');
-  assert.match(result.stderr, /Use \$weekly for the final weekly report/);
-  assert.match(result.stderr, /workline weekly --context/);
-  assert.match(result.stderr, /workline weekly --facts/);
+  assert.match(result.stderr, /Use \$workline or \/workline for the final weekly report/);
+  assert.match(result.stderr, /workline --context/);
+  assert.match(result.stderr, /workline --facts/);
   assert.equal(fs.existsSync(path.join(tempDir, 'output')), false);
 });
 
-test('weekly --facts localizes fact summary output from system language environment', () => {
+test('legacy weekly subcommand points users to the Workline command surface', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const result = spawnSync(process.execPath, [
     binPath,
     'weekly',
+    '--codex-root',
+    fixturesRoot,
+    '--since',
+    '2026-05-03T16:00:00.000Z',
+    '--until',
+    '2026-05-06T12:00:00.000Z',
+    '--timezone',
+    'Asia/Shanghai',
+    '--facts',
+  ], { cwd: tempDir, encoding: 'utf8', env: englishEnv });
+
+  assert.notEqual(result.status, 0);
+  assert.equal(result.stdout, '');
+  assert.match(result.stderr, /workline weekly has been renamed/);
+  assert.match(result.stderr, /workline --context/);
+  assert.match(result.stderr, /workline --facts/);
+  assert.equal(fs.existsSync(path.join(tempDir, 'output')), false);
+});
+
+test('workline --facts localizes fact summary output from system language environment', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
+  const result = spawnSync(process.execPath, [
+    binPath,
     '--codex-root',
     fixturesRoot,
     '--since',
@@ -116,14 +138,14 @@ test('weekly --facts localizes fact summary output from system language environm
   });
 
   assert.equal(result.status, 0, result.stderr);
-  const outputPath = path.join(tempDir, 'output', 'weekly-facts-20260504-20260506.md');
+  const outputPath = path.join(tempDir, 'output', 'workline-facts-20260504-20260506.md');
   const markdown = fs.readFileSync(outputPath, 'utf8');
   assert.match(markdown, /^# Workline 週報事實摘要/m);
   assert.match(markdown, /週期: 2026-05-04 00:00:00 - 2026-05-06 20:00:00/);
   assert.match(markdown, /Completed weekly report MVP parser/);
 });
 
-test('weekly defaults to CODEX_HOME sessions when codex root is not provided', () => {
+test('workline defaults to CODEX_HOME sessions when codex root is not provided', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-home-'));
   const codexHome = path.join(tempHome, 'codex-home');
@@ -136,7 +158,6 @@ test('weekly defaults to CODEX_HOME sessions when codex root is not provided', (
 
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--since',
     '2026-05-03T16:00:00.000Z',
     '--until',
@@ -156,12 +177,12 @@ test('weekly defaults to CODEX_HOME sessions when codex root is not provided', (
   });
 
   assert.equal(result.status, 0, result.stderr);
-  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'weekly-facts-20260504-20260506.md'), 'utf8');
+  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'workline-facts-20260504-20260506.md'), 'utf8');
   assert.match(markdown, /Loaded macOS Codex sessions from CODEX_HOME/);
   assert.match(markdown, /## \/Users\/example\/project\/workline/);
 });
 
-test('weekly expands leading tilde in --codex-root', () => {
+test('workline expands leading tilde in --codex-root', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-home-'));
   writeSingleSession(
@@ -173,7 +194,6 @@ test('weekly expands leading tilde in --codex-root', () => {
 
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--codex-root',
     '~/.codex/sessions',
     '--since',
@@ -194,12 +214,12 @@ test('weekly expands leading tilde in --codex-root', () => {
   });
 
   assert.equal(result.status, 0, result.stderr);
-  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'weekly-facts-20260504-20260506.md'), 'utf8');
+  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'workline-facts-20260504-20260506.md'), 'utf8');
   assert.match(markdown, /Loaded macOS Codex sessions from tilde path/);
   assert.match(markdown, /## \/Users\/example\/project\/tilde-work/);
 });
 
-test('weekly combines explicit Codex and Claude Code roots', () => {
+test('workline combines explicit Codex and Claude Code roots', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const codexRoot = path.join(tempDir, 'codex-sessions');
   const claudeRoot = path.join(tempDir, 'claude-projects');
@@ -218,7 +238,6 @@ test('weekly combines explicit Codex and Claude Code roots', () => {
 
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--codex-root',
     codexRoot,
     '--claude-root',
@@ -233,14 +252,14 @@ test('weekly combines explicit Codex and Claude Code roots', () => {
   ], { cwd: tempDir, encoding: 'utf8', env: englishEnv });
 
   assert.equal(result.status, 0, result.stderr);
-  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'weekly-facts-20260504-20260506.md'), 'utf8');
+  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'workline-facts-20260504-20260506.md'), 'utf8');
   assert.match(markdown, /Loaded Codex work for combined report/);
   assert.match(markdown, /Reviewed Claude Code work for combined report/);
   assert.match(markdown, /### Codex CLI/);
   assert.match(markdown, /### Claude Code/);
 });
 
-test('weekly defaults Claude Code root to CLAUDE_CONFIG_DIR projects', () => {
+test('workline defaults Claude Code root to CLAUDE_CONFIG_DIR projects', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-home-'));
   const claudeConfigDir = path.join(tempHome, 'claude-config');
@@ -253,7 +272,6 @@ test('weekly defaults Claude Code root to CLAUDE_CONFIG_DIR projects', () => {
 
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--since',
     '2026-05-03T16:00:00.000Z',
     '--until',
@@ -274,17 +292,16 @@ test('weekly defaults Claude Code root to CLAUDE_CONFIG_DIR projects', () => {
   });
 
   assert.equal(result.status, 0, result.stderr);
-  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'weekly-facts-20260504-20260506.md'), 'utf8');
+  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'workline-facts-20260504-20260506.md'), 'utf8');
   assert.match(markdown, /Loaded Claude Code sessions from CLAUDE_CONFIG_DIR/);
   assert.match(markdown, /### Claude Code/);
 });
 
-test('weekly --output writes the same Markdown to a file', () => {
+test('workline --output writes the same Markdown to a file', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
-  const outputPath = path.join(tempDir, 'weekly.md');
+  const outputPath = path.join(tempDir, 'workline.md');
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--codex-root',
     fixturesRoot,
     '--since',
@@ -303,11 +320,10 @@ test('weekly --output writes the same Markdown to a file', () => {
   assert.match(fs.readFileSync(outputPath, 'utf8'), /# Workline Weekly Fact Summary/);
 });
 
-test('weekly --facts writes a fact summary package', () => {
+test('workline --facts writes a fact summary package', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--codex-root',
     fixturesRoot,
     '--since',
@@ -320,17 +336,16 @@ test('weekly --facts writes a fact summary package', () => {
   ], { cwd: tempDir, encoding: 'utf8', env: englishEnv });
 
   assert.equal(result.status, 0, result.stderr);
-  const outputPath = path.join(tempDir, 'output', 'weekly-facts-20260504-20260506.md');
+  const outputPath = path.join(tempDir, 'output', 'workline-facts-20260504-20260506.md');
   const markdown = fs.readFileSync(outputPath, 'utf8');
   assert.equal(result.stdout, '');
   assert.match(markdown, /# Workline Weekly Fact Summary/);
 });
 
-test('weekly --context writes an agent context package', () => {
+test('workline --context writes an agent context package', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--codex-root',
     fixturesRoot,
     '--since',
@@ -343,8 +358,8 @@ test('weekly --context writes an agent context package', () => {
   ], { cwd: tempDir, encoding: 'utf8', env: englishEnv });
 
   assert.equal(result.status, 0, result.stderr);
-  const outputPath = path.join(tempDir, 'output', 'weekly-context-20260504-20260506.md');
-  const finalReportPath = path.join(tempDir, 'output', 'weekly-20260504-20260506.md');
+  const outputPath = path.join(tempDir, 'output', 'workline-context-20260504-20260506.md');
+  const finalReportPath = path.join(tempDir, 'output', 'workline-20260504-20260506.md');
   const markdown = fs.readFileSync(outputPath, 'utf8');
   assert.equal(result.stdout, '');
   assert.match(markdown, /# Workline Weekly Agent Context/);
@@ -352,11 +367,10 @@ test('weekly --context writes an agent context package', () => {
   assert.match(markdown, /## Evidence index/);
 });
 
-test('weekly --context declares the final report language from system locale', () => {
+test('workline --context declares the final report language from system locale', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--codex-root',
     fixturesRoot,
     '--since',
@@ -380,17 +394,16 @@ test('weekly --context declares the final report language from system locale', (
   });
 
   assert.equal(result.status, 0, result.stderr);
-  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'weekly-context-20260504-20260506.md'), 'utf8');
+  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'workline-context-20260504-20260506.md'), 'utf8');
   assert.match(markdown, /Report language: Simplified Chinese/);
   assert.match(markdown, /用户系统语言已解析为简体中文；使用简体中文写最终报告的标题、周期、章节名和正文/);
   assert.match(markdown, /不要把 `Overview` 或 `Work topics` 作为固定可见章节标题/);
 });
 
-test('weekly --format agent-context remains a compatibility alias for --context', () => {
+test('workline --format agent-context remains a compatibility alias for --context', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--codex-root',
     fixturesRoot,
     '--since',
@@ -404,17 +417,16 @@ test('weekly --format agent-context remains a compatibility alias for --context'
   ], { cwd: tempDir, encoding: 'utf8', env: englishEnv });
 
   assert.equal(result.status, 0, result.stderr);
-  const outputPath = path.join(tempDir, 'output', 'weekly-context-20260504-20260506.md');
+  const outputPath = path.join(tempDir, 'output', 'workline-context-20260504-20260506.md');
   const markdown = fs.readFileSync(outputPath, 'utf8');
   assert.equal(result.stdout, '');
   assert.match(markdown, /# Workline Weekly Agent Context/);
 });
 
-test('weekly --print-output-path prints the generated file path', () => {
+test('workline --print-output-path prints the generated file path', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--codex-root',
     fixturesRoot,
     '--since',
@@ -427,17 +439,16 @@ test('weekly --print-output-path prints the generated file path', () => {
     '--print-output-path',
   ], { cwd: tempDir, encoding: 'utf8', env: englishEnv });
 
-  const outputPath = path.join(tempDir, 'output', 'weekly-context-20260504-20260506.md');
+  const outputPath = path.join(tempDir, 'output', 'workline-context-20260504-20260506.md');
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), outputPath);
   assert.equal(fs.existsSync(outputPath), true);
 });
 
-test('weekly output mode flags are mutually exclusive', () => {
+test('workline output mode flags are mutually exclusive', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const result = spawnSync(process.execPath, [
     binPath,
-    'weekly',
     '--codex-root',
     fixturesRoot,
     '--context',
@@ -448,7 +459,7 @@ test('weekly output mode flags are mutually exclusive', () => {
   assert.match(result.stderr, /Cannot combine --context and --facts/);
 });
 
-test('install-skill installs user-level weekly skills for Codex and Claude', () => {
+test('install-skill installs user-level Workline skills for Codex and Claude', () => {
   const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-home-'));
   const codexHome = path.join(tempHome, 'codex-home');
   const result = spawnSync(process.execPath, [
@@ -464,14 +475,15 @@ test('install-skill installs user-level weekly skills for Codex and Claude', () 
     },
   });
 
-  const codexSkill = path.join(codexHome, 'skills', 'weekly', 'SKILL.md');
-  const claudeSkill = path.join(tempHome, '.claude', 'skills', 'weekly', 'SKILL.md');
+  const codexSkill = path.join(codexHome, 'skills', 'workline', 'SKILL.md');
+  const claudeSkill = path.join(tempHome, '.claude', 'skills', 'workline', 'SKILL.md');
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Installed weekly skill for codex:/);
-  assert.match(result.stdout, /Installed weekly skill for claude:/);
-  assert.match(fs.readFileSync(codexSkill, 'utf8'), /name: weekly/);
-  assert.match(fs.readFileSync(codexSkill, 'utf8'), /workline weekly --context --print-output-path/);
-  assert.doesNotMatch(fs.readFileSync(codexSkill, 'utf8'), /workline weekly --format agent-context --print-output-path/);
+  assert.match(result.stdout, /Installed workline skill for codex:/);
+  assert.match(result.stdout, /Installed workline skill for claude:/);
+  assert.match(fs.readFileSync(codexSkill, 'utf8'), /name: workline/);
+  assert.match(fs.readFileSync(codexSkill, 'utf8'), /workline --context --print-output-path/);
+  assert.doesNotMatch(fs.readFileSync(codexSkill, 'utf8'), /workline weekly --context --print-output-path/);
+  assert.doesNotMatch(fs.readFileSync(codexSkill, 'utf8'), /workline --format agent-context --print-output-path/);
   assert.match(fs.readFileSync(codexSkill, 'utf8'), /Report language/);
   assert.match(fs.readFileSync(codexSkill, 'utf8'), /user system language resolved by `workline`/);
   assert.match(fs.readFileSync(codexSkill, 'utf8'), /scan-first/);
@@ -524,6 +536,9 @@ test('install-skill installs user-level weekly skills for Codex and Claude', () 
   assert.doesNotMatch(fs.readFileSync(codexSkill, 'utf8'), /Risks and blockers/);
   assert.doesNotMatch(fs.readFileSync(codexSkill, 'utf8'), /Suggested next steps/);
   assert.doesNotMatch(fs.readFileSync(codexSkill, 'utf8'), /Evidence appendix/);
-  assert.match(fs.readFileSync(claudeSkill, 'utf8'), /name: weekly/);
+  assert.match(fs.readFileSync(claudeSkill, 'utf8'), /name: workline/);
+  assert.match(fs.readFileSync(claudeSkill, 'utf8'), /\$workline/);
+  assert.match(fs.readFileSync(claudeSkill, 'utf8'), /\/workline/);
+  assert.match(fs.readFileSync(claudeSkill, 'utf8'), /workline summary/);
   assert.match(fs.readFileSync(claudeSkill, 'utf8'), /\u672c\u5468\u5468\u62a5/);
 });

@@ -1,4 +1,4 @@
-// 这些规则同时进入 agent-context 和 installed weekly skill；放在单处维护，避免两条用户路径漂移。
+// 这些规则同时进入 agent-context 和 installed Workline skill；放在单处维护，避免两条用户路径漂移。
 export const workTopicAgentTaskGuidance = [
   'Use human-readable topic headings directly as report sections instead of nesting them under a fixed structural label.',
   'Do not prefix topic headings with Work topic:. Do not add a Key outcomes subheading; list outcome bullets directly under each topic heading.',
@@ -44,9 +44,9 @@ export const finalReportEvidenceGuidance = [
 ];
 
 export const weeklyHarnessToolsLayer = [
-  '`workline weekly --context --print-output-path`: generates the local agent-context Markdown file and prints only that file path to stdout; treat stdout as path-only output.',
+  '`workline --context --print-output-path`: generates the local agent-context Markdown file and prints only that file path to stdout; treat stdout as path-only output.',
   'Pass through `--since`, `--until`, `--timezone`, `--codex-root`, or `--claude-root` when the user gives a time range, timezone, Codex sessions path, or Claude Code history path.',
-  'Generated agent-context file: bounded/summarized CLI-facing evidence package for the shared weekly harness contract, containing local facts, compact evidence references, Report language, and Final report path.',
+  'Generated agent-context file: bounded/summarized CLI-facing evidence package for the shared Workline harness contract, containing local facts, compact evidence references, Report language, and Final report path.',
   'Evidence index: maps compact evidence references to local evidence files.',
   'Evidence files referenced by the index: local potentially large/raw evidence sources.',
 ];
@@ -72,7 +72,7 @@ export const weeklyHarnessOperatingLoop = [
 
 export const weeklyHarnessPermissionBoundaries = [
   'MVP stays local: use the local `workline` CLI and local evidence.',
-  'The shared weekly harness contract is an internal behavior contract, not a separate program, service, config file, installed package, or user-visible component.',
+  'The shared Workline harness contract is an internal behavior contract, not a separate program, service, config file, installed package, or user-visible component.',
   'The workflow does not require a cloud service, external LLM provider, background service, Slack collector, email collector, task manager, desktop assistant, or another runtime component.',
   'Use the current agent model to understand, classify, and write the report.',
 ];
@@ -95,8 +95,8 @@ export const weeklyHarnessJudgmentRules = [
 export const weeklyHarnessOutputContract = [
   'Use the user system language resolved by `workline` and declared as Report language for the final report title, period line, headings, and body.',
   'Write the final Markdown report to the Final report path, then tell the user that path and a short completion summary.',
-  'Do not run `workline weekly --facts` for the final human-facing weekly report workflow.',
-  'Do not present `weekly-facts-*.md` paths or contents as the final weekly report.',
+  'Do not run `workline --facts` for the final human-facing weekly report workflow.',
+  'Do not present `workline-facts-*.md` paths or contents as the final report.',
   'Treat the generated agent-context file as an intermediate artifact, not as a default user-facing deliverable.',
   'After the final Markdown report is written successfully, delete the generated agent-context file.',
   'Do not present the generated agent-context path as a default user-facing deliverable.',
@@ -114,11 +114,11 @@ export const weeklyHarnessOutputContract = [
 ];
 
 export const weeklyAgentContextHarnessGuidance = [
-  'This context is the CLI-facing evidence package for the shared weekly harness contract, not a separate program, service, or user-visible component.',
+  'This context is the CLI-facing evidence package for the shared Workline harness contract, not a separate program, service, or user-visible component.',
   'The MVP stays local and relies on local Agent facts, local evidence references, and the local output path.',
   'The command stdout is path-only; the generated context file is the content Agent should read next.',
-  'Do not use `workline weekly --facts` while writing the final report; fact summaries are explicit debug artifacts, not user-facing report output.',
-  'When telling the user where the weekly report is, use the Final report path, not `weekly-facts-*.md` or the generated context path.',
+  'Do not use `workline --facts` while writing the final report; fact summaries are explicit debug artifacts, not user-facing report output.',
+  'When telling the user where the weekly report is, use the Final report path, not `workline-facts-*.md` or the generated context path.',
   'Visible content may be bounded/summarized, truncated, or folded; compact evidence references point to local raw or potentially large evidence files.',
   'Read raw evidence only when visible context is insufficient to support, weaken, or reject a concrete final-report decision.',
   'Start from a concrete final-report decision, such as whether to include a candidate claim or outcome, what topic name or display name to use, whether to include an evidence reference, or whether to exclude a fact.',

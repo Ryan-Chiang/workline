@@ -15,13 +15,13 @@ function bulletLines(lines: string[]): string[] {
 export function renderWeeklySkillMarkdown(): string {
   return [
     '---',
-    'name: weekly',
-    'description: Use when the user asks for weekly, /weekly, $weekly, 本周周报, 周报, weekly update, weekly progress, or asks to summarize recent agent-assisted work.',
+    'name: workline',
+    'description: Use when the user asks for workline, /workline, $workline, Workline report, workline summary, 生成 Workline 周报, 整理 Workline 工作进展, weekly report, weekly progress, 本周周报, 周报, or asks to summarize recent agent-assisted work.',
     '---',
     '',
-    '# Weekly',
+    '# Workline',
     '',
-    'Weekly is the Agent-facing adapter for the shared weekly harness contract. The local `workline` CLI is the local fact/context engine. `workline` extracts the facts; you provide judgment, synthesis, and reader-appropriate wording.',
+    'Workline is the Agent-facing adapter for the shared Workline harness contract. The local `workline` CLI is the local fact/context engine. `workline` extracts the facts; you provide judgment, synthesis, and reader-appropriate wording.',
     '',
     '## Available Local Tools',
     '',

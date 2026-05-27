@@ -28,8 +28,10 @@ type CliOptions = {
 
 // CLI 参数解析刻意保持小而直白，方便审计行为，也避免新增依赖扩大插件表面积。
 function parseArgs(args: string[]): CliOptions {
-  const [command, ...rest] = args;
-  const options: CliOptions = { command };
+  const [first] = args;
+  const hasCommand = first !== undefined && !first.startsWith('--');
+  const rest = hasCommand ? args.slice(1) : args;
+  const options: CliOptions = hasCommand ? { command: first } : {};
   const valueOptions = new Set(['--since', '--until', '--timezone', '--codex-root', '--claude-root', '--output', '--format', '--target']);
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -126,7 +128,7 @@ function weeklyOutputMode(options: CliOptions): WeeklyOutputMode {
     return 'facts';
   }
   if (!options.format) {
-    throw new Error('workline weekly needs an explicit output layer. Use $weekly for the final weekly report, workline weekly --context for Agent context, or workline weekly --facts for fact summary.');
+    throw new Error('workline needs an explicit output layer when run directly. Use $workline or /workline for the final weekly report, workline --context for Agent context, or workline --facts for fact summary.');
   }
   return parseFormat(options.format);
 }
@@ -173,19 +175,19 @@ function resolveClaudeRoot(value: string | undefined): string {
 function reportOutputPath(since: Date, until: Date, timezone: string): string {
   const startDate = formatFilenameDate(since, timezone);
   const endDate = formatFilenameDate(until, timezone);
-  return path.join(process.cwd(), 'output', `weekly-${startDate}-${endDate}.md`);
+  return path.join(process.cwd(), 'output', `workline-${startDate}-${endDate}.md`);
 }
 
 function factSummaryOutputPath(since: Date, until: Date, timezone: string): string {
   const startDate = formatFilenameDate(since, timezone);
   const endDate = formatFilenameDate(until, timezone);
-  return path.join(process.cwd(), 'output', `weekly-facts-${startDate}-${endDate}.md`);
+  return path.join(process.cwd(), 'output', `workline-facts-${startDate}-${endDate}.md`);
 }
 
 function agentContextOutputPath(since: Date, until: Date, timezone: string): string {
   const startDate = formatFilenameDate(since, timezone);
   const endDate = formatFilenameDate(until, timezone);
-  return path.join(process.cwd(), 'output', `weekly-context-${startDate}-${endDate}.md`);
+  return path.join(process.cwd(), 'output', `workline-context-${startDate}-${endDate}.md`);
 }
 
 // weekly 只提取并包装本地事实；最终叙事可以是确定性报告，也可以交给当前模型读取上下文。
@@ -237,16 +239,20 @@ async function runInstallSkill(options: CliOptions): Promise<void> {
   const target = parseSkillTarget(options.target);
   const installed = await installWeeklySkill(target);
   for (const item of installed) {
-    process.stdout.write(`Installed weekly skill for ${item.target}: ${path.join(item.path, 'SKILL.md')}\n`);
+    process.stdout.write(`Installed workline skill for ${item.target}: ${path.join(item.path, 'SKILL.md')}\n`);
   }
 }
 
 // main 导出给测试使用并保持低副作用；只有可执行 shim 读取 process.argv 并处理 stderr。
 export async function main(args: string[]): Promise<void> {
   const options = parseArgs(args);
-  if (options.command === 'weekly') {
+  if (!options.command) {
     await runWeekly(options);
     return;
+  }
+
+  if (options.command === 'weekly') {
+    throw new Error('workline weekly has been renamed. Use $workline or /workline for the final weekly report, workline --context for Agent context, or workline --facts for fact summary.');
   }
 
   if (options.command === 'install-skill') {
@@ -254,5 +260,5 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
-  throw new Error('Usage: workline weekly [--since <instant>] [--until <instant>] [--timezone <iana>] [--codex-root <path>] [--claude-root <path>] [--output <path>] [--facts|--context] [--format report|agent-context] [--print-output-path]\n       workline install-skill [--target codex|claude|both]');
+  throw new Error('Usage: workline [--since <instant>] [--until <instant>] [--timezone <iana>] [--codex-root <path>] [--claude-root <path>] [--output <path>] [--facts|--context] [--format report|agent-context] [--print-output-path]\n       workline install-skill [--target codex|claude|both]');
 }

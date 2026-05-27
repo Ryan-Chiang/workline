@@ -23,7 +23,7 @@
     "test": "node --test tests/*.test.ts",
     "build": "node --check bin/workline.js && tsc -p tsconfig.build.json",
     "prepack": "npm run build",
-    "smoke": "node ./bin/workline.js weekly --facts --codex-root ./tests/fixtures/codex-sessions --since 2026-05-03T16:00:00.000Z --until 2026-05-06T12:00:00.000Z --timezone Asia/Shanghai"
+    "smoke": "node ./bin/workline.js --facts --codex-root ./tests/fixtures/codex-sessions --since 2026-05-03T16:00:00.000Z --until 2026-05-06T12:00:00.000Z --timezone Asia/Shanghai"
   },
   "engines": {
     "node": ">=24.0.0"
