@@ -23,19 +23,13 @@ This early release is for developers, product builders, and technical leads who 
 
 It is not a team task manager, project management system, or personal desktop assistant.
 
-### Install
+### Install From npm
 
 Prerequisite: Node.js `>=24.0.0`.
 
-For an npm install:
+Use this path when you want the latest published release:
 
 ```powershell
-npm install -g workline
-```
-
-On macOS, the same command can be run from a shell:
-
-```bash
 npm install -g workline
 ```
 
@@ -45,7 +39,18 @@ To upgrade later:
 npm install -g workline@latest
 ```
 
-If you are testing from a local checkout:
+### Install From GitHub Source
+
+Use this path when you want to test the current source from GitHub before or instead of an npm release:
+
+```powershell
+git clone https://github.com/Ryan-Chiang/workline.git
+cd workline
+npm install
+npm link
+```
+
+If you already have a local checkout:
 
 ```powershell
 npm install
@@ -130,12 +135,18 @@ To upgrade an existing global install, use:
 npm install -g workline@latest
 ```
 
-If the user is working from a cloned repository, use:
+### Install From GitHub Source
+
+Use this path when the user explicitly wants the current GitHub source instead of the published npm package:
 
 ```powershell
+git clone https://github.com/Ryan-Chiang/workline.git
+cd workline
 npm install
 npm link
 ```
+
+If the repository is already cloned, run only `npm install` and `npm link` from the repository root.
 
 ### Verify Installation
 
