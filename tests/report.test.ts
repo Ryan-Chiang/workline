@@ -80,6 +80,110 @@ function boundedContextFacts(): CodexFacts {
   };
 }
 
+function claudeToolContextFacts(): CodexFacts {
+  const evidenceFile = 'C:\\evidence\\claude-file-tools.jsonl';
+
+  return {
+    warnings: [],
+    sessions: [{
+      id: 'claude-file-tools-session',
+      cwd: 'C:\\repo\\customer-signin',
+      project: 'C:\\repo\\customer-signin',
+      surface: 'Claude Code',
+      source: 'claude',
+      originator: 'Claude Code',
+      evidenceFile,
+      completed: [],
+      inProgress: [],
+      lowConfidence: [{
+        summary: 'Prepared local memory notes for the next pass.',
+        time: new Date('2026-05-04T03:00:00.000Z'),
+        evidenceFile,
+        sourceType: 'claude_assistant',
+      }],
+      commands: [
+        { command: 'npm run dev', exitCode: 0, time: new Date('2026-05-04T04:00:00.000Z'), evidenceFile },
+      ],
+      toolEvents: [
+        { tool: 'Read', category: 'exploration', target: 'src/pages/CustomerCheckin.vue', time: new Date('2026-05-04T03:01:00.000Z'), evidenceFile },
+        { tool: 'Edit', category: 'output', target: 'src/pages/CustomerCheckin.vue', time: new Date('2026-05-04T03:02:00.000Z'), evidenceFile },
+        { tool: 'MultiEdit', category: 'output', target: 'src/pages/CustomerCheckin.vue', time: new Date('2026-05-04T03:03:00.000Z'), evidenceFile },
+        { tool: 'Write', category: 'output', target: 'src/api/checkin.js', time: new Date('2026-05-04T03:04:00.000Z'), evidenceFile },
+        { tool: 'Glob', category: 'exploration', target: 'src/**/*.vue', time: new Date('2026-05-04T03:05:00.000Z'), evidenceFile },
+        { tool: 'TodoWrite', category: 'planning', target: 'todo list', time: new Date('2026-05-04T03:06:00.000Z'), evidenceFile },
+      ],
+      tokenUsage: {
+        input_tokens: 1,
+        cached_input_tokens: 0,
+        output_tokens: 1,
+        reasoning_output_tokens: 0,
+        total_tokens: 2,
+        approximate: false,
+      },
+    }],
+  };
+}
+
+function qualityGateFacts(): CodexFacts {
+  const workspaceEvidence = 'C:\\repo\\workline\\docs\\strategy\\workline-gtm.md';
+  const commandEvidence = 'C:\\evidence\\command-heavy.jsonl';
+
+  return {
+    warnings: [],
+    sessions: [{
+      id: 'workspace-doc-session',
+      cwd: 'C:\\repo\\workline',
+      project: 'C:\\repo\\workline',
+      surface: 'Workspace',
+      source: 'workspace',
+      originator: 'git',
+      evidenceFile: workspaceEvidence,
+      completed: [],
+      inProgress: [{
+        summary: 'Workspace draft document: docs/strategy/workline-gtm.md (untracked) headings=Workline Positioning and GTM Direction; Pricing and Packaging; Language Strategy; themes=Build in public, GTM, pricing, language',
+        time: new Date('2026-05-04T03:00:00.000Z'),
+        evidenceFile: workspaceEvidence,
+        sourceType: 'task_started',
+      }],
+      lowConfidence: [],
+      commands: [],
+      tokenUsage: {
+        input_tokens: 0,
+        cached_input_tokens: 0,
+        output_tokens: 0,
+        reasoning_output_tokens: 0,
+        total_tokens: 0,
+        approximate: false,
+      },
+    }, {
+      id: 'command-heavy-session',
+      cwd: 'C:\\repo\\command-heavy',
+      project: 'C:\\repo\\command-heavy',
+      surface: 'Codex App',
+      source: 'vscode',
+      originator: 'Codex Desktop',
+      evidenceFile: commandEvidence,
+      completed: [],
+      inProgress: [],
+      lowConfidence: [],
+      commands: Array.from({ length: 6 }, (_, index) => ({
+        command: `Get-Content file-${index}.ts`,
+        exitCode: 0,
+        time: new Date(`2026-05-04T04:0${index}:00.000Z`),
+        evidenceFile: commandEvidence,
+      })),
+      tokenUsage: {
+        input_tokens: 0,
+        cached_input_tokens: 0,
+        output_tokens: 0,
+        reasoning_output_tokens: 0,
+        total_tokens: 0,
+        approximate: false,
+      },
+    }],
+  };
+}
+
 test('renders a project-first weekly fact summary with required sections', async () => {
   const facts = await loadCodexFacts({
     codexRoot: fixturesRoot,
@@ -227,7 +331,7 @@ test('renders an agent context package with final report path and evidence', asy
   assert.match(markdown, /Do not include raw `Thought`, `Action`, or `Observation` labels/);
   assert.match(markdown, /tool-use traces/);
   assert.match(markdown, /evidence-expansion decisions/);
-  assert.match(markdown, /The user system language was resolved as English/);
+  assert.match(markdown, /Report language was resolved as English/);
   assert.match(markdown, /use English for the final report title, period line, headings, and body/);
   assert.match(markdown, /Start the final Markdown report with exactly two localized opening lines/);
   assert.match(markdown, /includes `\{report display name\}` only when identity evidence is reliable/);
@@ -293,10 +397,14 @@ test('renders agent context with report language metadata and language instructi
     generatedAt: new Date('2026-05-06T12:30:00.000Z'),
     finalReportPath: 'C:\\reports\\weekly.md',
     reportLanguage: 'ko',
+    reportLanguageSource: 'local-agent-history',
+    reportLanguageConfidence: 'high',
   });
 
   assert.match(markdown, /Report language: Korean/);
-  assert.match(markdown, /The user system language was resolved as Korean/);
+  assert.match(markdown, /Report language source: local-agent-history/);
+  assert.match(markdown, /Report language confidence: high/);
+  assert.match(markdown, /Report language was resolved as Korean/);
   assert.match(markdown, /## 에이전트 작업/);
 });
 
@@ -316,7 +424,7 @@ test('agent context localizes the final-report contract and forbids placeholder 
   });
 
   assert.match(markdown, /Report language: Simplified Chinese/);
-  assert.match(markdown, /用户系统语言已解析为简体中文；使用简体中文写最终报告的标题、周期、章节名和正文/);
+  assert.match(markdown, /报告语言已解析为简体中文；使用简体中文写最终报告的标题、周期、章节名和正文/);
   assert.match(markdown, /第一行使用 `\{report display name\} 工作推进进展`；没有可信展示名时使用 `工作推进进展`/);
   assert.match(markdown, /第二行使用 `周期：\{startDate\} 至 \{endDate\}`/);
   assert.match(markdown, /不要写 `你的名字` 或其他占位称呼/);
@@ -361,6 +469,39 @@ test('prioritizes high-signal command evidence and reports omitted command count
   assert.doesNotMatch(markdown, /RECENT_COMMAND_TAIL_SHOULD_NOT_RENDER/);
   assert.doesNotMatch(markdown, /`Get-Content README\.md`/);
   assert.match(markdown, /3 command evidence items omitted for Codex App; full commands remain available via \[E1\]/);
+});
+
+test('renders language, workspace, and anomaly quality gates in agent context', () => {
+  const markdown = renderWeeklyAgentContext(qualityGateFacts(), {
+    ...boundedContextWindow,
+    finalReportPath: 'C:\\reports\\weekly.md',
+    reportLanguage: 'zh-Hans',
+  });
+
+  assert.match(markdown, /## Quality gates/);
+  assert.match(markdown, /Language quality gate: final report language is Simplified Chinese/);
+  assert.match(markdown, /Use the Report language declared above; source evidence language must not override it/);
+  assert.match(markdown, /Translate common English shorthand when a natural Simplified Chinese business term exists/);
+  assert.match(markdown, /GTM -> 获客\/上市策略/);
+  assert.match(markdown, /local-first freemium -> 本地优先的免费增值/);
+  assert.match(markdown, /Workspace\/Git diff facts are included as draft or in-progress evidence/);
+  assert.match(markdown, /Workspace draft evidence found in \[E\d+\]; do not report it as completed unless commit, release, or external publication evidence exists/);
+  assert.match(markdown, /Anomaly gate: session=command-heavy-session has 6 command evidence items but no candidate outcome/);
+});
+
+test('summarizes Claude file tool activity and flags low-confidence edit-only sessions', () => {
+  const facts = claudeToolContextFacts();
+  const markdown = renderWeeklyAgentContext(facts, {
+    ...boundedContextWindow,
+    finalReportPath: 'C:\\reports\\weekly.md',
+  });
+
+  assert.match(markdown, /#### Tool evidence/);
+  assert.match(markdown, /Claude Code tool activity: 6 events summarized \(outputs=3, exploration=2, planning=1; evidence=\[E1\]\)/);
+  assert.match(markdown, /High-value edits: src\/pages\/CustomerCheckin\.vue edited 2 times; src\/api\/checkin\.js written 1 time/);
+  assert.match(markdown, /Exploration: src\/pages\/CustomerCheckin\.vue read 1 time; src\/\*\*\/\*\.vue globbed 1 time/);
+  assert.match(markdown, /Planning: TodoWrite updated 1 time/);
+  assert.match(markdown, /Read raw evidence \[E1\] before excluding or downgrading this session because it has file edit evidence but only low-confidence narrative/);
 });
 
 test('keeps deterministic fact summary rendering unbounded and unchanged by agent context budgets', () => {

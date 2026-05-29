@@ -4,10 +4,11 @@ import path from 'node:path';
 
 import { loadClaudeFacts } from './claude.ts';
 import { loadCodexFacts } from './codex.ts';
-import { getDefaultReportLanguage } from './locale.ts';
+import { getReportLanguageDecision, parseReportLanguageOverride } from './locale.ts';
 import { renderWeeklyAgentContext, renderWeeklyFactSummary } from './report.ts';
 import { installWeeklySkill, parseSkillTarget } from './skills.ts';
 import { formatFilenameDate, getDefaultTimezone, getDefaultWeeklyWindow } from './time.ts';
+import { loadWorkspaceFacts } from './workspace.ts';
 
 type WeeklyOutputMode = 'facts' | 'agent-context';
 
@@ -24,6 +25,7 @@ type CliOptions = {
   facts?: boolean;
   printOutputPath?: boolean;
   target?: string;
+  reportLanguage?: string;
 };
 
 // CLI 参数解析刻意保持小而直白，方便审计行为，也避免新增依赖扩大插件表面积。
@@ -32,7 +34,7 @@ function parseArgs(args: string[]): CliOptions {
   const hasCommand = first !== undefined && !first.startsWith('--');
   const rest = hasCommand ? args.slice(1) : args;
   const options: CliOptions = hasCommand ? { command: first } : {};
-  const valueOptions = new Set(['--since', '--until', '--timezone', '--codex-root', '--claude-root', '--output', '--format', '--target']);
+  const valueOptions = new Set(['--since', '--until', '--timezone', '--codex-root', '--claude-root', '--output', '--format', '--target', '--report-language']);
 
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index];
@@ -81,6 +83,8 @@ function parseArgs(args: string[]): CliOptions {
       options.format = value;
     } else if (arg === '--target') {
       options.target = value;
+    } else if (arg === '--report-language') {
+      options.reportLanguage = value;
     } else {
       throw new Error(`Unknown option: ${arg}`);
     }
@@ -194,19 +198,34 @@ function agentContextOutputPath(since: Date, until: Date, timezone: string): str
 async function runWeekly(options: CliOptions): Promise<void> {
   const timezone = options.timezone ?? getDefaultTimezone();
   const outputMode = weeklyOutputMode(options);
+  const explicitReportLanguage = options.reportLanguage === undefined
+    ? undefined
+    : parseReportLanguageOverride(options.reportLanguage);
+  if (options.reportLanguage !== undefined && !explicitReportLanguage) {
+    throw new Error(`Invalid --report-language: ${options.reportLanguage}`);
+  }
   const defaults = getDefaultWeeklyWindow(timezone);
   const since = parseDate(options.since, '--since') ?? defaults.since;
   const until = parseDate(options.until, '--until') ?? defaults.until;
   const codexRoot = resolveCodexRoot(options.codexRoot);
   const claudeRoot = resolveClaudeRoot(options.claudeRoot);
+  const generatedAt = new Date();
   const codexFacts = await loadCodexFacts({ codexRoot, since, until });
   const claudeFacts = await loadClaudeFacts({ claudeRoot, since, until });
+  const workspaceFacts = await loadWorkspaceFacts({ cwd: process.cwd(), now: generatedAt });
   const facts = {
-    sessions: [...codexFacts.sessions, ...claudeFacts.sessions],
-    warnings: [...codexFacts.warnings, ...claudeFacts.warnings],
+    sessions: [...codexFacts.sessions, ...claudeFacts.sessions, ...workspaceFacts.sessions],
+    warnings: [...codexFacts.warnings, ...claudeFacts.warnings, ...workspaceFacts.warnings],
+    languageMessages: [
+      ...(codexFacts.languageMessages ?? []),
+      ...(claudeFacts.languageMessages ?? []),
+    ],
   };
-  const generatedAt = new Date();
-  const reportLanguage = getDefaultReportLanguage();
+  const reportLanguageDecision = getReportLanguageDecision({
+    explicitLanguage: explicitReportLanguage,
+    userMessages: facts.languageMessages,
+    timezone,
+  });
   const finalReportPath = path.resolve(reportOutputPath(since, until, timezone));
   const markdown = outputMode === 'agent-context' ? renderWeeklyAgentContext(facts, {
     since,
@@ -214,13 +233,17 @@ async function runWeekly(options: CliOptions): Promise<void> {
     timezone,
     generatedAt,
     finalReportPath,
-    reportLanguage,
+    reportLanguage: reportLanguageDecision.language,
+    reportLanguageSource: reportLanguageDecision.source,
+    reportLanguageConfidence: reportLanguageDecision.confidence,
   }) : renderWeeklyFactSummary(facts, {
     since,
     until,
     timezone,
     generatedAt,
-    reportLanguage,
+    reportLanguage: reportLanguageDecision.language,
+    reportLanguageSource: reportLanguageDecision.source,
+    reportLanguageConfidence: reportLanguageDecision.confidence,
   });
 
   const defaultOutputPath = outputMode === 'agent-context'
@@ -260,5 +283,5 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
-  throw new Error('Usage: workline [--since <instant>] [--until <instant>] [--timezone <iana>] [--codex-root <path>] [--claude-root <path>] [--output <path>] [--facts|--context] [--format report|agent-context] [--print-output-path]\n       workline install-skill [--target codex|claude|both]');
+  throw new Error('Usage: workline [--since <instant>] [--until <instant>] [--timezone <iana>] [--codex-root <path>] [--claude-root <path>] [--output <path>] [--facts|--context] [--format report|agent-context] [--report-language <locale>] [--print-output-path]\n       workline install-skill [--target codex|claude|both]');
 }

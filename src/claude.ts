@@ -2,7 +2,15 @@ import fs from 'node:fs/promises';
 import type { Dirent } from 'node:fs';
 import path from 'node:path';
 
-import type { AgentFacts, CommandEvidence, SessionFacts, TokenUsage, WorkItem } from './types.ts';
+import type {
+  AgentFacts,
+  CommandEvidence,
+  LanguageMessage,
+  SessionFacts,
+  TokenUsage,
+  ToolEvidence,
+  WorkItem,
+} from './types.ts';
 
 type RawClaudeLine = Record<string, unknown>;
 
@@ -81,6 +89,7 @@ function sessionFromLine(raw: RawClaudeLine, evidenceFile: string, startedAt?: D
     inProgress: [],
     lowConfidence: [],
     commands: [],
+    toolEvents: [],
   };
 }
 
@@ -149,6 +158,92 @@ function commandsFromMessage(raw: RawClaudeLine, time: Date, evidenceFile: strin
   return commands;
 }
 
+function toolEventCategory(tool: string): ToolEvidence['category'] | undefined {
+  switch (tool.toLowerCase()) {
+    case 'read':
+    case 'grep':
+    case 'glob':
+    case 'ls':
+      return 'exploration';
+    case 'edit':
+    case 'multiedit':
+    case 'write':
+      return 'output';
+    case 'todowrite':
+      return 'planning';
+    default:
+      return undefined;
+  }
+}
+
+function targetFromToolInput(tool: string, input: Record<string, unknown> | undefined): string {
+  const normalizedTool = tool.toLowerCase();
+  if (!input) {
+    return normalizedTool === 'todowrite' ? 'todo list' : 'unknown target';
+  }
+
+  const filePath = stringField(input.file_path) ?? stringField(input.filePath);
+  if (filePath) {
+    return filePath;
+  }
+
+  const targetPath = stringField(input.path);
+  if (targetPath) {
+    return targetPath;
+  }
+
+  const pattern = stringField(input.pattern);
+  if (pattern) {
+    return pattern;
+  }
+
+  const glob = stringField(input.glob);
+  if (glob) {
+    return glob;
+  }
+
+  return normalizedTool === 'todowrite' ? 'todo list' : 'unknown target';
+}
+
+function toolEventFromToolUse(item: unknown, time: Date, evidenceFile: string): ToolEvidence | undefined {
+  const entry = objectField(item);
+  if (!entry || entry.type !== 'tool_use') {
+    return undefined;
+  }
+
+  const tool = stringField(entry.name);
+  if (!tool) {
+    return undefined;
+  }
+
+  const category = toolEventCategory(tool);
+  if (!category) {
+    return undefined;
+  }
+
+  return {
+    tool,
+    category,
+    target: targetFromToolInput(tool, objectField(entry.input)),
+    time,
+    evidenceFile,
+  };
+}
+
+function toolEventsFromMessage(raw: RawClaudeLine, time: Date, evidenceFile: string): ToolEvidence[] {
+  const message = objectField(raw.message);
+  const content = message?.content ?? raw.content;
+
+  if (!Array.isArray(content)) {
+    return [];
+  }
+
+  return content.flatMap((item) => {
+    const event = toolEventFromToolUse(item, time, evidenceFile);
+    return event ? [event] : [];
+  });
+}
+
 function lowConfidenceFromLine(raw: RawClaudeLine, time: Date, evidenceFile: string): WorkItem | undefined {
   if (raw.type === 'summary') {
     const summary = stringField(raw.summary);
@@ -161,6 +256,14 @@ function lowConfidenceFromLine(raw: RawClaudeLine, time: Date, evidenceFile: str
   }
 
   return undefined;
+}
+
+function userMessageText(raw: RawClaudeLine): string | undefined {
+  const message = objectField(raw.message);
+  if (raw.type !== 'user' && message?.role !== 'user') {
+    return undefined;
+  }
+  return textContentFromMessage(raw);
 }
 
 function emptyTokenUsage(): TokenUsage {
@@ -183,6 +286,7 @@ function latestLowConfidence(session: MutableClaudeSession): WorkItem[] {
 export async function loadClaudeFacts(options: LoadClaudeFactsOptions): Promise<AgentFacts> {
   const warnings: string[] = [];
   const sessions: MutableClaudeSession[] = [];
+  const languageMessages: LanguageMessage[] = [];
   const files = await findClaudeJsonlFiles(options.claudeRoot);
 
   for (const file of files) {
@@ -210,11 +314,22 @@ export async function loadClaudeFacts(options: LoadClaudeFactsOptions): Promise<
         continue;
       }
 
+      const userText = userMessageText(raw);
+      if (userText) {
+        languageMessages.push({
+          text: userText,
+          time,
+          evidenceFile: file,
+          sourceType: 'claude_user',
+        });
+      }
+
       const lowConfidence = lowConfidenceFromLine(raw, time, file);
       if (lowConfidence) {
         session.lowConfidence.push(lowConfidence);
       }
       session.commands.push(...commandsFromMessage(raw, time, file));
+      session.toolEvents?.push(...toolEventsFromMessage(raw, time, file));
     }
 
     if (session) {
@@ -222,15 +337,20 @@ export async function loadClaudeFacts(options: LoadClaudeFactsOptions): Promise<
     }
   }
 
-  return {
+  const facts: AgentFacts = {
     sessions: sessions
       .map((session) => ({ ...session, lowConfidence: latestLowConfidence(session), tokenUsage: emptyTokenUsage() }))
       .filter((session) => {
         return session.completed.length > 0 ||
           session.inProgress.length > 0 ||
           session.lowConfidence.length > 0 ||
-          session.commands.length > 0;
+          session.commands.length > 0 ||
+          (session.toolEvents?.length ?? 0) > 0;
       }),
     warnings,
   };
+  if (languageMessages.length > 0) {
+    facts.languageMessages = languageMessages;
+  }
+  return facts;
 }

@@ -104,7 +104,9 @@ test('workline skill output contract prioritizes scanability and avoids placehol
   const output = section(markdown, 'Output Contract');
 
   assert.match(identity, /If identity evidence is missing, conflicting, or low confidence, omit the display name/);
-  assert.match(output, /Use the user system language resolved by `workline` and declared as Report language for the final report title, period line, headings, and body/);
+  assert.match(output, /Use the declared Report language for the final report title, period line, headings, and body/);
+  assert.match(output, /current conversation language should be passed to `workline --context --print-output-path --report-language <language>` before context generation/);
+  assert.match(markdown, /Fibonacci/);
   assert.match(output, /Do not write placeholder display names such as `你的名字`/);
   assert.match(output, /Keep the report scan-first/);
   assert.match(output, /Do not use `Overview` or `Work topics` as fixed visible section headings/);

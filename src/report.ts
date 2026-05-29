@@ -1,4 +1,4 @@
-import type { AgentContextWindow, AgentFacts, ReportWindow, SessionFacts, TokenUsage, WorkItem, CommandEvidence } from './types.ts';
+import type { AgentContextWindow, AgentFacts, ReportWindow, SessionFacts, TokenUsage, ToolEvidence, WorkItem, CommandEvidence } from './types.ts';
 import { reportLanguageName, type ReportLanguage } from './locale.ts';
 import { formatInTimezone } from './time.ts';
 import {
@@ -410,6 +410,7 @@ const agentContextBudget = {
   workItemPreviewChars: 240,
   commandPreviewChars: 160,
   visibleCommandsPerSurface: 5,
+  visibleToolTargetsPerSession: 5,
 };
 
 function textFor(language: ReportLanguage | undefined): ReportText {
@@ -419,13 +420,13 @@ function textFor(language: ReportLanguage | undefined): ReportText {
 function finalReportLanguageInstruction(language: ReportLanguage | undefined): string {
   const resolved = language ?? 'en';
   if (resolved === 'zh-Hans') {
-    return '用户系统语言已解析为简体中文；使用简体中文写最终报告的标题、周期、章节名和正文。不要因为上下文、issue、命令或证据语言不同而切换最终报告语言。';
+    return '报告语言已解析为简体中文；使用简体中文写最终报告的标题、周期、章节名和正文。不要因为上下文、issue、命令或证据语言不同而切换最终报告语言。';
   }
   if (resolved === 'zh-Hant') {
-    return '使用者系統語言已解析為繁體中文；使用繁體中文撰寫最終報告的標題、週期、章節名和正文。不要因為上下文、issue、命令或證據語言不同而切換最終報告語言。';
+    return '報告語言已解析為繁體中文；使用繁體中文撰寫最終報告的標題、週期、章節名和正文。不要因為上下文、issue、命令或證據語言不同而切換最終報告語言。';
   }
 
-  return `The user system language was resolved as ${reportLanguageName(resolved)}; use ${reportLanguageName(resolved)} for the final report title, period line, headings, and body. Do not switch final report language because the context, issues, commands, or evidence use another language.`;
+  return `Report language was resolved as ${reportLanguageName(resolved)}; use ${reportLanguageName(resolved)} for the final report title, period line, headings, and body. Do not switch final report language because the context, issues, commands, or evidence use another language.`;
 }
 
 function finalReportOpeningInstruction(language: ReportLanguage | undefined): string {
@@ -546,6 +547,7 @@ function evidenceFiles(facts: AgentFacts): string[] {
     ...session.inProgress.map((item) => item.evidenceFile),
     ...session.lowConfidence.map((item) => item.evidenceFile),
     ...session.commands.map((command) => command.evidenceFile),
+    ...(session.toolEvents ?? []).map((event) => event.evidenceFile),
   ]))].sort();
 }
 
@@ -698,6 +700,166 @@ function formatAgentCommand(
   return `\`${preview.text}${marker}\`${exit} (${formatInTimezone(command.time, timezone)}, session=${session.id}, evidence=${evidence})`;
 }
 
+function countBy<T>(items: T[], keyFor: (item: T) => string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    increment(counts, keyFor(item));
+  }
+  return counts;
+}
+
+function toolAction(tool: string): string {
+  switch (tool.toLowerCase()) {
+    case 'read':
+      return 'read';
+    case 'grep':
+      return 'searched';
+    case 'glob':
+      return 'globbed';
+    case 'ls':
+      return 'listed';
+    case 'write':
+      return 'written';
+    case 'todowrite':
+      return 'updated';
+    case 'edit':
+    case 'multiedit':
+      return 'edited';
+    default:
+      return 'used';
+  }
+}
+
+function timesLabel(count: number): string {
+  return count === 1 ? '1 time' : `${count} times`;
+}
+
+function toolCategoryCount(events: ToolEvidence[], category: ToolEvidence['category']): number {
+  return events.filter((event) => event.category === category).length;
+}
+
+function visibleToolGroups(events: ToolEvidence[], labelFor: (event: ToolEvidence) => string): string[] {
+  const counts = countBy(events, labelFor);
+  const firstSeen = new Map<string, number>();
+  for (const event of events) {
+    const label = labelFor(event);
+    firstSeen.set(label, Math.min(firstSeen.get(label) ?? Number.POSITIVE_INFINITY, event.time.getTime()));
+  }
+  const grouped = [...counts.entries()]
+    .toSorted((left, right) => right[1] - left[1] ||
+      (firstSeen.get(left[0]) ?? 0) - (firstSeen.get(right[0]) ?? 0) ||
+      left[0].localeCompare(right[0]));
+  const visible = grouped.slice(0, agentContextBudget.visibleToolTargetsPerSession);
+  const omitted = grouped.length - visible.length;
+  const lines = visible.map(([label, count]) => `${label} ${timesLabel(count)}`);
+  if (omitted > 0) {
+    lines.push(`${omitted} more target${omitted === 1 ? '' : 's'} summarized in raw evidence`);
+  }
+  return lines;
+}
+
+function formatToolCategory(events: ToolEvidence[], category: ToolEvidence['category']): string | undefined {
+  const categoryEvents = events.filter((event) => event.category === category);
+  if (categoryEvents.length === 0) {
+    return undefined;
+  }
+
+  if (category === 'planning') {
+    return visibleToolGroups(categoryEvents, (event) => `${event.tool} ${toolAction(event.tool)}`).join('; ');
+  }
+
+  return visibleToolGroups(categoryEvents, (event) => `${event.target} ${toolAction(event.tool)}`).join('; ');
+}
+
+function toolEvidenceRefs(events: ToolEvidence[], evidenceFor: (file: string) => string): string {
+  return [...new Set(events.map((event) => evidenceFor(event.evidenceFile)))].join(', ');
+}
+
+function shouldRequireRawEvidenceForClaudeTools(session: SessionFacts): boolean {
+  const events = session.toolEvents ?? [];
+  return session.source === 'claude' &&
+    events.some((event) => event.category === 'output') &&
+    session.completed.length === 0 &&
+    session.inProgress.length === 0 &&
+    session.lowConfidence.length > 0;
+}
+
+function toolActivityLabel(session: SessionFacts): string {
+  return session.source === 'claude' ? 'Claude Code tool activity' : `${session.surface} tool activity`;
+}
+
+function formatToolEvidenceLines(session: SessionFacts, evidenceFor: (file: string) => string): string[] {
+  const events = session.toolEvents ?? [];
+  if (events.length === 0) {
+    return [];
+  }
+
+  const outputCount = toolCategoryCount(events, 'output');
+  const explorationCount = toolCategoryCount(events, 'exploration');
+  const planningCount = toolCategoryCount(events, 'planning');
+  const evidence = toolEvidenceRefs(events, evidenceFor);
+  const lines = [
+    `${toolActivityLabel(session)}: ${events.length} events summarized (outputs=${outputCount}, exploration=${explorationCount}, planning=${planningCount}; evidence=${evidence})`,
+  ];
+  const output = formatToolCategory(events, 'output');
+  if (output) {
+    lines.push(`High-value edits: ${output}`);
+  }
+  const exploration = formatToolCategory(events, 'exploration');
+  if (exploration) {
+    lines.push(`Exploration: ${exploration}`);
+  }
+  const planning = formatToolCategory(events, 'planning');
+  if (planning) {
+    lines.push(`Planning: ${planning}`);
+  }
+  if (shouldRequireRawEvidenceForClaudeTools(session)) {
+    lines.push(`Read raw evidence ${evidence} before excluding or downgrading this session because it has file edit evidence but only low-confidence narrative.`);
+  }
+  return lines;
+}
+
+function languageQualityGate(language: ReportLanguage | undefined): string {
+  const name = reportLanguageName(language ?? 'en');
+  if (language === 'zh-Hans') {
+    return `Language quality gate: final report language is ${name}. Translate common English shorthand when a natural ${name} business term exists; examples: GTM -> 获客/上市策略; local-first freemium -> 本地优先的免费增值; Free Local -> 本地免费版.`;
+  }
+  if (language === 'zh-Hant') {
+    return `Language quality gate: final report language is ${name}. Translate common English shorthand when a natural ${name} business term exists; examples: GTM -> 獲客/上市策略; local-first freemium -> 本地優先的免費增值; Free Local -> 本地免費版.`;
+  }
+  return `Language quality gate: final report language is ${name}. Translate common English shorthand when a natural ${name} business term exists.`;
+}
+
+function qualityGateLines(
+  facts: AgentFacts,
+  language: ReportLanguage | undefined,
+  evidenceRefs: EvidenceRefs,
+): string[] {
+  const lines = [
+    languageQualityGate(language),
+    'Use the Report language declared above; source evidence language must not override it.',
+  ];
+  const workspaceSessions = facts.sessions.filter((session) => session.source === 'workspace' || session.surface === 'Workspace');
+
+  if (workspaceSessions.length > 0) {
+    lines.push('Workspace/Git diff facts are included as draft or in-progress evidence.');
+    for (const session of workspaceSessions) {
+      lines.push(`Workspace draft evidence found in ${evidenceRefs.ref(session.evidenceFile)}; do not report it as completed unless commit, release, or external publication evidence exists.`);
+    }
+  }
+
+  for (const session of facts.sessions) {
+    if (session.completed.length === 0 &&
+        session.inProgress.length === 0 &&
+        session.lowConfidence.length === 0 &&
+        session.commands.length >= 6) {
+      lines.push(`Anomaly gate: session=${session.id} has ${session.commands.length} command evidence items but no candidate outcome; review ${evidenceRefs.ref(session.evidenceFile)} before excluding or downgrading it.`);
+    }
+  }
+
+  return lines;
+}
+
 // 预算说明属于事实包，不属于最终报告结构；它只说明 Agent 需要时从哪里恢复被省略细节。
 function agentOmissionNotes(notes: AgentContextNotes): string[] {
   const lines: string[] = [];
@@ -729,6 +891,7 @@ function renderSurface(sessions: SessionFacts[], timezone: string, text: ReportT
     const exit = command.exitCode === undefined ? '' : ` exit=${command.exitCode}`;
     return `\`${command.command}\`${exit} (${formatInTimezone(command.time, timezone)}, session=${session.id}, evidence=${command.evidenceFile})`;
   }));
+  const toolEvents = sessions.flatMap((session) => formatToolEvidenceLines(session, (file) => file));
 
   lines.push(`#### ${text.completedWork}`);
   lines.push(...bullet(completed, text), '');
@@ -736,6 +899,10 @@ function renderSurface(sessions: SessionFacts[], timezone: string, text: ReportT
   lines.push(...bullet(inProgress, text), '');
   lines.push(`#### ${text.commandEvidence}`);
   lines.push(...bullet(commands, text), '');
+  if (toolEvents.length > 0) {
+    lines.push('#### Tool evidence');
+    lines.push(...toolEvents, '');
+  }
   lines.push(`#### ${text.tokenUsage}`);
   lines.push(`- ${tokenLine(totalTokens(sessions), text)}`);
   return lines;
@@ -778,6 +945,8 @@ export const renderWeeklyReport = renderWeeklyFactSummary;
 // agent-context 是带预算的证据包加写作契约，用来连接本地事实和当前 Agent 的管理汇报。
 export function renderWeeklyAgentContext(facts: AgentFacts, window: AgentContextWindow): string {
   const text = textFor(window.reportLanguage);
+  const evidenceRefs = createEvidenceRefs(facts);
+  const notes = emptyAgentContextNotes();
   const lines: string[] = [
     `# ${text.agentContextTitle}`,
     '',
@@ -786,6 +955,8 @@ export function renderWeeklyAgentContext(facts: AgentFacts, window: AgentContext
     `- ${text.generated}: ${formatInTimezone(window.generatedAt, window.timezone)}`,
     `- ${text.finalReportPath}: ${window.finalReportPath}`,
     `- Report language: ${reportLanguageName(window.reportLanguage ?? 'en')}`,
+    `- Report language source: ${window.reportLanguageSource ?? 'fallback'}`,
+    `- Report language confidence: ${window.reportLanguageConfidence ?? 'low'}`,
     '',
     `## ${text.agentTask}`,
     `- ${text.agentTaskRead}`,
@@ -804,10 +975,11 @@ export function renderWeeklyAgentContext(facts: AgentFacts, window: AgentContext
     ...finalReportEvidenceGuidance.map((line) => `- ${line}`),
     ...boundedContextAgentTaskGuidance.map((line) => `- ${line}`),
     '',
+    '## Quality gates',
+    ...qualityGateLines(facts, window.reportLanguage, evidenceRefs).map((line) => `- ${line}`),
+    '',
   ];
 
-  const evidenceRefs = createEvidenceRefs(facts);
-  const notes = emptyAgentContextNotes();
   const projects = groupByProject(facts.sessions, text);
   if (projects.size === 0) {
     lines.push(`## ${text.extractedFacts}`, '', `- ${text.none}`, '');
@@ -839,6 +1011,13 @@ export function renderWeeklyAgentContext(facts: AgentFacts, window: AgentContext
           return formatAgentCommand(command, session, window.timezone, evidenceRefs, notes);
         });
       }), text), '');
+      const toolEvents = surfaceSessions.flatMap((session) => {
+        return formatToolEvidenceLines(session, (file) => evidenceRefs.ref(file));
+      });
+      if (toolEvents.length > 0) {
+        lines.push('#### Tool evidence');
+        lines.push(...toolEvents.map((line) => `- ${line}`), '');
+      }
       lines.push(`#### ${text.tokenUsage}`);
       lines.push(`- ${tokenLine(totalTokens(surfaceSessions), text)}`, '');
     }

@@ -19,6 +19,23 @@ export type CommandEvidence = {
   evidenceFile: string;
 };
 
+export type ToolEventCategory = 'exploration' | 'output' | 'planning';
+
+export type ToolEvidence = {
+  tool: string;
+  category: ToolEventCategory;
+  target: string;
+  time: Date;
+  evidenceFile: string;
+};
+
+export type LanguageMessage = {
+  text: string;
+  time: Date;
+  evidenceFile: string;
+  sourceType: 'codex_user' | 'claude_user';
+};
+
 // 工作事项保留来源事件类型，避免渲染层把低置信度 Agent 对话提升成已完成成果。
 export type WorkItem = {
   summary: string;
@@ -47,6 +64,7 @@ export type SessionFacts = {
   inProgress: WorkItem[];
   lowConfidence: WorkItem[];
   commands: CommandEvidence[];
+  toolEvents?: ToolEvidence[];
   tokenUsage: TokenUsage;
 };
 
@@ -54,6 +72,7 @@ export type SessionFacts = {
 export type AgentFacts = {
   sessions: SessionFacts[];
   warnings: string[];
+  languageMessages?: LanguageMessage[];
 };
 
 export type CodexFacts = AgentFacts;
@@ -70,6 +89,8 @@ export type ReportWindow = {
   timezone: string;
   generatedAt: Date;
   reportLanguage?: import('./locale.ts').ReportLanguage;
+  reportLanguageSource?: import('./locale.ts').ReportLanguageSource;
+  reportLanguageConfidence?: import('./locale.ts').ReportLanguageConfidence;
 };
 
 export type AgentContextWindow = ReportWindow & {

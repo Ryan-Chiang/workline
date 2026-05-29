@@ -43,10 +43,16 @@ export const finalReportEvidenceGuidance = [
   'When final-report traceability is needed, integrate the reference naturally into the outcome text instead of exposing evidence mechanics.',
 ];
 
+export const finalReportLanguageQualityGuidance = [
+  'Use the declared Report language as the final report language even when source evidence, commands, issues, or product shorthand use another language.',
+  'Translate common English shorthand when a natural business term exists in the Report language; for Simplified Chinese, prefer terms such as GTM -> 获客/上市策略, local-first freemium -> 本地优先的免费增值, and Free Local -> 本地免费版.',
+  'Keep proper nouns, product names, repo names, and exact file or command references unchanged when translation would reduce traceability.',
+];
+
 export const weeklyHarnessToolsLayer = [
   '`workline --context --print-output-path`: generates the local agent-context Markdown file and prints only that file path to stdout; treat stdout as path-only output.',
-  'Pass through `--since`, `--until`, `--timezone`, `--codex-root`, or `--claude-root` when the user gives a time range, timezone, Codex sessions path, or Claude Code history path.',
-  'Generated agent-context file: bounded/summarized CLI-facing evidence package for the shared Workline harness contract, containing local facts, compact evidence references, Report language, and Final report path.',
+  'Pass through `--since`, `--until`, `--timezone`, `--codex-root`, `--claude-root`, or `--report-language` when the user gives a time range, timezone, sessions path, history path, or explicit report language.',
+  'Generated agent-context file: bounded/summarized CLI-facing evidence package for the shared Workline harness contract, containing local facts, compact evidence references, Report language, Report language source, Report language confidence, and Final report path.',
   'Evidence index: maps compact evidence references to local evidence files.',
   'Evidence files referenced by the index: local potentially large/raw evidence sources.',
 ];
@@ -93,7 +99,9 @@ export const weeklyHarnessJudgmentRules = [
 ];
 
 export const weeklyHarnessOutputContract = [
-  'Use the user system language resolved by `workline` and declared as Report language for the final report title, period line, headings, and body.',
+  'If the current conversation language is clear, current conversation language should be passed to `workline --context --print-output-path --report-language <language>` before context generation; score recent user inputs with Fibonacci decay and ignore code, commands, paths, URLs, JSON, logs, and tool output.',
+  'Use the declared Report language for the final report title, period line, headings, and body.',
+  ...finalReportLanguageQualityGuidance,
   'Write the final Markdown report to the Final report path, then tell the user that path and a short completion summary.',
   'Do not run `workline --facts` for the final human-facing weekly report workflow.',
   'Do not present `workline-facts-*.md` paths or contents as the final report.',
@@ -123,5 +131,6 @@ export const weeklyAgentContextHarnessGuidance = [
   'Read raw evidence only when visible context is insufficient to support, weaken, or reject a concrete final-report decision.',
   'Start from a concrete final-report decision, such as whether to include a candidate claim or outcome, what topic name or display name to use, whether to include an evidence reference, or whether to exclude a fact.',
   'Compress the observation into usable facts before continuing.',
+  ...finalReportLanguageQualityGuidance,
   'Do not include raw `Thought`, `Action`, or `Observation` labels, internal reasoning, raw loop labels, context-budget explanations, tool-use traces, or evidence-expansion decisions in the final Markdown report.',
 ];

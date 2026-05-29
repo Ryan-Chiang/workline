@@ -4,10 +4,12 @@ import path from 'node:path';
 
 import type {
   CodexFacts,
+  LanguageMessage,
   LoadCodexFactsOptions,
   SessionFacts,
   TokenFields,
   TokenUsage,
+  ToolEvidence,
 } from './types.ts';
 
 type RawLine = {
@@ -38,6 +40,19 @@ function numberField(payload: Record<string, unknown>, field: keyof TokenFields)
 function objectField(payload: Record<string, unknown>, field: string): Record<string, unknown> | undefined {
   const value = payload[field];
   return typeof value === 'object' && value !== null ? value as Record<string, unknown> : undefined;
+}
+
+function parseJsonObject(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== 'string' || !value.trim()) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, unknown> : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // Codex 历史上既在 payload 根部，也在 info.total_token_usage 下输出 token 数据；两种都支持以保留旧日志证据。
@@ -115,6 +130,7 @@ function sessionFromMeta(payload: Record<string, unknown>, evidenceFile: string,
     inProgress: [],
     lowConfidence: [],
     commands: [],
+    toolEvents: [],
     tokenSamples: [],
     hasWindowTokenFact: false,
   };
@@ -200,6 +216,137 @@ function commandString(payload: Record<string, unknown>): string {
   return stringField(payload.cmd) ?? 'Unknown command';
 }
 
+function normalizedTarget(target: string, cwd: string): string {
+  if (path.isAbsolute(target)) {
+    const relative = path.relative(cwd, target);
+    if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+      return relative.replace(/\\/g, '/');
+    }
+  }
+
+  return target.replace(/\\/g, '/');
+}
+
+function pushToolEvent(
+  session: MutableSession,
+  event: Omit<ToolEvidence, 'evidenceFile'>,
+): void {
+  session.toolEvents ??= [];
+  session.toolEvents.push({
+    ...event,
+    evidenceFile: session.evidenceFile,
+  });
+}
+
+function recordResponseItem(session: MutableSession, payload: Record<string, unknown>, time: Date): void {
+  if (payload.type !== 'function_call') {
+    return;
+  }
+
+  const name = stringField(payload.name);
+  if (name !== 'shell_command') {
+    return;
+  }
+
+  const args = parseJsonObject(payload.arguments);
+  if (!args) {
+    return;
+  }
+
+  session.commands.push({
+    command: commandString(args),
+    time,
+    evidenceFile: session.evidenceFile,
+  });
+}
+
+function textPartsFromContent(content: unknown): string[] {
+  if (typeof content === 'string' && content.trim()) {
+    return [content.trim()];
+  }
+  if (!Array.isArray(content)) {
+    return [];
+  }
+  return content.flatMap((item) => {
+    if (typeof item === 'string' && item.trim()) {
+      return [item.trim()];
+    }
+    if (typeof item !== 'object' || item === null) {
+      return [];
+    }
+    const entry = item as Record<string, unknown>;
+    if (entry.type !== 'input_text' && entry.type !== 'text') {
+      return [];
+    }
+    const text = stringField(entry.text);
+    return text ? [text] : [];
+  });
+}
+
+function codexUserMessageText(payload: Record<string, unknown>): string | undefined {
+  if (payload.type !== 'message' || payload.role !== 'user') {
+    return undefined;
+  }
+  const text = textPartsFromContent(payload.content).join('\n').trim();
+  return text || undefined;
+}
+
+function recordToolEvent(session: MutableSession, payload: Record<string, unknown>, time: Date): void {
+  const payloadType = stringField(payload.type);
+  if (payloadType === 'patch_apply_end') {
+    const changes = objectField(payload, 'changes');
+    if (!changes) {
+      return;
+    }
+
+    for (const target of Object.keys(changes).sort()) {
+      pushToolEvent(session, {
+        tool: 'apply_patch',
+        category: 'output',
+        target: normalizedTarget(target, session.cwd),
+        time,
+      });
+    }
+    return;
+  }
+
+  if (payloadType === 'mcp_tool_call_end') {
+    const invocation = objectField(payload, 'invocation');
+    if (!invocation) {
+      return;
+    }
+
+    const server = stringField(invocation.server);
+    const tool = stringField(invocation.tool);
+    if (!server || !tool) {
+      return;
+    }
+
+    const args = objectField(invocation, 'arguments') ?? {};
+    pushToolEvent(session, {
+      tool: `mcp:${server}.${tool}`,
+      category: 'exploration',
+      target: firstString(args.title, args.command, args.q) ?? `${server}.${tool}`,
+      time,
+    });
+    return;
+  }
+
+  if (payloadType === 'web_search_end') {
+    const query = stringField(payload.query);
+    if (!query) {
+      return;
+    }
+
+    pushToolEvent(session, {
+      tool: 'web_search',
+      category: 'exploration',
+      target: query,
+      time,
+    });
+  }
+}
+
 // token_count 是累计样本；周期用量需要减去窗口前基线，缺少基线时显式标记近似。
 function computeTokenUsage(
   samples: MutableSession['tokenSamples'],
@@ -245,6 +392,7 @@ function latestLowConfidence(session: MutableSession) {
 export async function loadCodexFacts(options: LoadCodexFactsOptions): Promise<CodexFacts> {
   const warnings: string[] = [];
   const sessions: MutableSession[] = [];
+  const languageMessages: LanguageMessage[] = [];
   const files = await findRolloutFiles(options.codexRoot);
 
   for (const file of files) {
@@ -266,7 +414,7 @@ export async function loadCodexFacts(options: LoadCodexFactsOptions): Promise<Co
         continue;
       }
 
-      if (raw.type !== 'event_msg' || !raw.payload) {
+      if (!raw.payload || (raw.type !== 'event_msg' && raw.type !== 'response_item')) {
         continue;
       }
 
@@ -292,6 +440,20 @@ export async function loadCodexFacts(options: LoadCodexFactsOptions): Promise<Co
       }
 
       if (time < options.since || time > options.until) {
+        continue;
+      }
+
+      if (raw.type === 'response_item') {
+        const userText = codexUserMessageText(raw.payload);
+        if (userText) {
+          languageMessages.push({
+            text: userText,
+            time,
+            evidenceFile: file,
+            sourceType: 'codex_user',
+          });
+        }
+        recordResponseItem(session, raw.payload, time);
         continue;
       }
 
@@ -324,6 +486,8 @@ export async function loadCodexFacts(options: LoadCodexFactsOptions): Promise<Co
           time,
           evidenceFile: file,
         });
+      } else {
+        recordToolEvent(session, raw.payload, time);
       }
     }
 
@@ -332,7 +496,7 @@ export async function loadCodexFacts(options: LoadCodexFactsOptions): Promise<Co
     }
   }
 
-  return {
+  const facts: CodexFacts = {
     sessions: sessions
       .map((session) => {
         const completed = latestCompleted(session);
@@ -349,10 +513,15 @@ export async function loadCodexFacts(options: LoadCodexFactsOptions): Promise<Co
           session.inProgress.length > 0 ||
           session.lowConfidence.length > 0 ||
           session.commands.length > 0 ||
+          (session.toolEvents ?? []).length > 0 ||
           session.hasWindowTokenFact;
       })
       // 跨出模块边界前移除提取阶段临时字段，渲染层只接触公开的 SessionFacts 契约。
       .map(({ tokenSamples: _tokenSamples, hasWindowTokenFact: _hasWindowTokenFact, ...session }) => session),
     warnings,
   };
+  if (languageMessages.length > 0) {
+    facts.languageMessages = languageMessages;
+  }
+  return facts;
 }

@@ -66,6 +66,11 @@ function writeSingleClaudeSession(root: string, id: string, cwd: string, summary
   }), 'utf8');
 }
 
+function runGit(cwd: string, args: string[]): void {
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+}
+
 test('workline without an output layer points users to the final-report workflow', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
   const result = spawnSync(process.execPath, [
@@ -396,8 +401,107 @@ test('workline --context declares the final report language from system locale',
   assert.equal(result.status, 0, result.stderr);
   const markdown = fs.readFileSync(path.join(tempDir, 'output', 'workline-context-20260504-20260506.md'), 'utf8');
   assert.match(markdown, /Report language: Simplified Chinese/);
-  assert.match(markdown, /用户系统语言已解析为简体中文；使用简体中文写最终报告的标题、周期、章节名和正文/);
+  assert.match(markdown, /Report language source: system-locale/);
+  assert.match(markdown, /Report language confidence: medium/);
+  assert.match(markdown, /报告语言已解析为简体中文；使用简体中文写最终报告的标题、周期、章节名和正文/);
   assert.match(markdown, /不要把 `Overview` 或 `Work topics` 作为固定可见章节标题/);
+});
+
+test('workline --context honors explicit --report-language over locale fallback', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
+  const result = spawnSync(process.execPath, [
+    binPath,
+    '--codex-root',
+    fixturesRoot,
+    '--since',
+    '2026-05-03T16:00:00.000Z',
+    '--until',
+    '2026-05-06T12:00:00.000Z',
+    '--timezone',
+    'Asia/Shanghai',
+    '--context',
+    '--report-language',
+    'ko',
+  ], {
+    cwd: tempDir,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: emptyClaudeConfigDir,
+      LC_ALL: 'zh_CN.UTF-8',
+      LC_MESSAGES: 'zh_CN.UTF-8',
+      LANG: 'zh_CN.UTF-8',
+      LANGUAGE: 'zh_CN',
+    },
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'workline-context-20260504-20260506.md'), 'utf8');
+  assert.match(markdown, /Report language: Korean/);
+  assert.match(markdown, /Report language source: explicit/);
+  assert.match(markdown, /Report language confidence: high/);
+});
+
+test('workline rejects unsupported --report-language values', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
+  const result = spawnSync(process.execPath, [
+    binPath,
+    '--codex-root',
+    fixturesRoot,
+    '--since',
+    '2026-05-03T16:00:00.000Z',
+    '--until',
+    '2026-05-06T12:00:00.000Z',
+    '--timezone',
+    'Asia/Shanghai',
+    '--context',
+    '--report-language',
+    'ru',
+  ], { cwd: tempDir, encoding: 'utf8', env: englishEnv });
+
+  assert.notEqual(result.status, 0);
+  assert.equal(result.stdout, '');
+  assert.match(result.stderr, /Invalid --report-language: ru/);
+  assert.equal(fs.existsSync(path.join(tempDir, 'output')), false);
+});
+
+test('workline --context includes current workspace strategy drafts', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-'));
+  const emptyCodexRoot = path.join(tempDir, 'empty-codex');
+  runGit(tempDir, ['init']);
+  fs.mkdirSync(path.join(tempDir, 'docs', 'strategy'), { recursive: true });
+  fs.writeFileSync(path.join(tempDir, 'docs', 'strategy', 'workline-gtm.md'), [
+    '# Workline Positioning and GTM Direction',
+    '',
+    '## Pricing and Packaging',
+    '',
+    'Use local-first freemium.',
+    '',
+    '## Language Strategy',
+    '',
+    'Chinese-first reports.',
+  ].join('\n'), 'utf8');
+
+  const result = spawnSync(process.execPath, [
+    binPath,
+    '--codex-root',
+    emptyCodexRoot,
+    '--since',
+    '2026-05-03T16:00:00.000Z',
+    '--until',
+    '2026-05-06T12:00:00.000Z',
+    '--timezone',
+    'Asia/Shanghai',
+    '--context',
+  ], { cwd: tempDir, encoding: 'utf8', env: englishEnv });
+
+  assert.equal(result.status, 0, result.stderr);
+  const markdown = fs.readFileSync(path.join(tempDir, 'output', 'workline-context-20260504-20260506.md'), 'utf8');
+  assert.match(markdown, /## Project: .*workline-/);
+  assert.match(markdown, /### Surface: Workspace/);
+  assert.match(markdown, /Workspace draft document: docs\/strategy\/workline-gtm\.md/);
+  assert.match(markdown, /themes=GTM, pricing, language/);
+  assert.match(markdown, /Workspace\/Git diff facts are included as draft or in-progress evidence/);
 });
 
 test('workline --format agent-context remains a compatibility alias for --context', () => {
@@ -485,7 +589,9 @@ test('install-skill installs user-level Workline skills for Codex and Claude', (
   assert.doesNotMatch(fs.readFileSync(codexSkill, 'utf8'), /workline weekly --context --print-output-path/);
   assert.doesNotMatch(fs.readFileSync(codexSkill, 'utf8'), /workline --format agent-context --print-output-path/);
   assert.match(fs.readFileSync(codexSkill, 'utf8'), /Report language/);
-  assert.match(fs.readFileSync(codexSkill, 'utf8'), /user system language resolved by `workline`/);
+  assert.match(fs.readFileSync(codexSkill, 'utf8'), /declared Report language/);
+  assert.match(fs.readFileSync(codexSkill, 'utf8'), /--report-language/);
+  assert.match(fs.readFileSync(codexSkill, 'utf8'), /Fibonacci/);
   assert.match(fs.readFileSync(codexSkill, 'utf8'), /scan-first/);
   assert.match(fs.readFileSync(codexSkill, 'utf8'), /Do not use `Overview` or `Work topics` as fixed visible section headings/);
   assert.match(fs.readFileSync(codexSkill, 'utf8'), /human-readable topic headings/);

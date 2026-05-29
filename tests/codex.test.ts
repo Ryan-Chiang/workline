@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { loadCodexFacts } from '../src/codex.ts';
@@ -19,7 +21,7 @@ test('loads Codex facts, classifies App and CLI surfaces, and warns on malformed
     until: new Date('2026-05-06T12:00:00.000Z'),
   });
 
-  assert.equal(facts.sessions.length, 6);
+  assert.equal(facts.sessions.length, 7);
   assert.equal(facts.sessions.find((s) => s.id === 'app-session')?.surface, 'Codex App');
   assert.equal(facts.sessions.find((s) => s.id === 'cli-session')?.surface, 'Codex CLI');
   assert.equal(facts.sessions.find((s) => s.id === 'boundary-session')?.surface, 'Codex CLI');
@@ -162,5 +164,71 @@ test('normalizes exec_command_end command arrays and parsed_cmd fallback', async
   assert.deepEqual(cli?.commands.map((command) => command.command), [
     'pwsh.exe -Command node ./bin/workline.js weekly',
     'git status --short',
+  ]);
+});
+
+test('extracts Codex response tool calls and patch events as structured evidence', async () => {
+  const facts = await loadCodexFacts({
+    codexRoot: fixturesRoot,
+    since: new Date('2026-05-03T16:00:00.000Z'),
+    until: new Date('2026-05-06T12:00:00.000Z'),
+  });
+
+  const session = facts.sessions.find((s) => s.id === 'tool-trace-session');
+
+  assert.ok(session);
+  assert.deepEqual(session.commands.map((command) => command.command), ['npm test']);
+  assert.deepEqual(session.toolEvents?.map((event) => ({
+    tool: event.tool,
+    category: event.category,
+    target: event.target,
+  })), [
+    { tool: 'apply_patch', category: 'output', target: 'docs/strategy/gtm.md' },
+    { tool: 'apply_patch', category: 'output', target: 'docs/strategy/language.md' },
+    { tool: 'mcp:node_repl.js', category: 'exploration', target: 'Inspect package metadata' },
+    { tool: 'web_search', category: 'exploration', target: 'workline GTM strategy' },
+  ]);
+});
+
+test('extracts Codex user message text for report language fallback without rendering it as work', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workline-codex-language-'));
+  const sessionDir = path.join(tempRoot, '2026', '05', '06');
+  fs.mkdirSync(sessionDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionDir, 'rollout-language.jsonl'), [
+    JSON.stringify({
+      timestamp: '2026-05-06T01:00:00.000Z',
+      type: 'session_meta',
+      payload: {
+        id: 'codex-language-session',
+        cwd: 'C:\\repo\\workline',
+        originator: 'codex-tui',
+        source: 'cli',
+      },
+    }),
+    JSON.stringify({
+      timestamp: '2026-05-06T01:05:00.000Z',
+      type: 'response_item',
+      payload: {
+        type: 'message',
+        role: 'user',
+        content: [
+          { type: 'input_text', text: '请用中文生成 Workline 周报。' },
+        ],
+      },
+    }),
+  ].join('\n'), 'utf8');
+
+  const facts = await loadCodexFacts({
+    codexRoot: tempRoot,
+    since: new Date('2026-05-03T16:00:00.000Z'),
+    until: new Date('2026-05-06T12:00:00.000Z'),
+  });
+
+  assert.deepEqual(facts.sessions, []);
+  assert.deepEqual(facts.languageMessages?.map((message) => ({
+    text: message.text,
+    sourceType: message.sourceType,
+  })), [
+    { text: '请用中文生成 Workline 周报。', sourceType: 'codex_user' },
   ]);
 });
